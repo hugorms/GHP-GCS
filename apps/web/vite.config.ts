@@ -1,10 +1,14 @@
+import fs from "node:fs";
 import path from "node:path";
 import * as dotenv from "@dotenvx/dotenvx";
 import { reactRouter } from "@react-router/dev/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+const envPath = path.resolve(__dirname, ".env");
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
 
 // Expose only vars starting with VITE_
 const viteEnv = Object.keys(process.env)

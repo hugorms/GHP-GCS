@@ -15,9 +15,10 @@ export function ProfileSidebarTime(props: Props) {
   const { timeZone } = props;
   // current time hook
   const { currentTime } = useCurrentTime();
+  const locale = typeof navigator !== "undefined" ? navigator.language : "es-ES";
 
   // Create a date object for the current time in the specified timezone
-  const formatter = new Intl.DateTimeFormat("en-US", {
+  const formatter = new Intl.DateTimeFormat(locale, {
     timeZone: timeZone,
     hour12: false, // Use 24-hour format
     hour: "2-digit",

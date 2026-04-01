@@ -140,27 +140,60 @@ SITE_ID = 1
 # User Model
 AUTH_USER_MODEL = "db.User"
 
-# Database
-if bool(os.environ.get("DATABASE_URL")):
-    # Parse database configuration from $DATABASE_URL
-    DATABASES = {"default": dj_database_url.config()}
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("POSTGRES_DB"),
-            "USER": os.environ.get("POSTGRES_USER"),
-            "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
-            "HOST": os.environ.get("POSTGRES_HOST"),
-            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
-        }
+
+def _postgres_from_env():
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("POSTGRES_DB"),
+        "USER": os.environ.get("POSTGRES_USER"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
+        "HOST": os.environ.get("POSTGRES_HOST"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
+
+
+# Database
+# DATABASE_URL often uses ${POSTGRES_HOST}:${POSTGRES_PORT} placeholders. Docker Compose
+# expands those when loading .env; Dokploy and similar tools inject env vars without that substitution.
+# os.path.expandvars fixes the former; if placeholders remain, use POSTGRES_* vars only.
+_database_url = os.environ.get("DATABASE_URL", "")
+if _database_url:
+    _database_url_expanded = os.path.expandvars(_database_url)
+    if "${" not in _database_url_expanded:
+        try:
+            DATABASES = {"default": dj_database_url.config(default=_database_url_expanded)}
+        except ValueError:
+            DATABASES = {"default": _postgres_from_env()}
+    else:
+        DATABASES = {"default": _postgres_from_env()}
+else:
+    DATABASES = {"default": _postgres_from_env()}
 
 
 if os.environ.get("ENABLE_READ_REPLICA", "0") == "1":
     if bool(os.environ.get("DATABASE_READ_REPLICA_URL")):
-        # Parse database configuration from $DATABASE_URL
-        DATABASES["replica"] = dj_database_url.parse(os.environ.get("DATABASE_READ_REPLICA_URL"))
+        _replica_url = os.path.expandvars(os.environ.get("DATABASE_READ_REPLICA_URL", ""))
+        if "${" not in _replica_url:
+            try:
+                DATABASES["replica"] = dj_database_url.parse(_replica_url)
+            except ValueError:
+                DATABASES["replica"] = {
+                    "ENGINE": "django.db.backends.postgresql",
+                    "NAME": os.environ.get("POSTGRES_READ_REPLICA_DB"),
+                    "USER": os.environ.get("POSTGRES_READ_REPLICA_USER"),
+                    "PASSWORD": os.environ.get("POSTGRES_READ_REPLICA_PASSWORD"),
+                    "HOST": os.environ.get("POSTGRES_READ_REPLICA_HOST"),
+                    "PORT": os.environ.get("POSTGRES_READ_REPLICA_PORT", "5432"),
+                }
+        else:
+            DATABASES["replica"] = {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.environ.get("POSTGRES_READ_REPLICA_DB"),
+                "USER": os.environ.get("POSTGRES_READ_REPLICA_USER"),
+                "PASSWORD": os.environ.get("POSTGRES_READ_REPLICA_PASSWORD"),
+                "HOST": os.environ.get("POSTGRES_READ_REPLICA_HOST"),
+                "PORT": os.environ.get("POSTGRES_READ_REPLICA_PORT", "5432"),
+            }
     else:
         DATABASES["replica"] = {
             "ENGINE": "django.db.backends.postgresql",
@@ -178,7 +211,8 @@ if os.environ.get("ENABLE_READ_REPLICA", "0") == "1":
 
 
 # Redis Config
-REDIS_URL = os.environ.get("REDIS_URL")
+_redis_url = os.environ.get("REDIS_URL")
+REDIS_URL = os.path.expandvars(_redis_url) if _redis_url else None
 REDIS_SSL = REDIS_URL and "rediss" in REDIS_URL
 
 if REDIS_SSL:

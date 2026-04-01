@@ -72,12 +72,16 @@ export const IssueAttachmentsDetail = observer(function IssueAttachmentsDetail(p
           attachmentId={attachmentId}
         />
       )}
-      <div className="flex h-[60px] items-center justify-between gap-1 rounded-md border-[2px] border-subtle bg-surface-1 px-4 py-2 text-13">
+      <div
+        className={`flex items-center justify-between gap-1 rounded-md border-[2px] border-subtle bg-surface-1 text-13 ${
+          isImage ? "h-[80px] px-2 py-2" : "h-[60px] px-4 py-2"
+        }`}
+      >
         <Link href={fileURL ?? ""} target="_blank" rel="noopener noreferrer">
           <div className="flex items-center gap-3">
-            <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded">
+            <div className={`flex-shrink-0 overflow-hidden rounded ${isImage ? "h-[64px] w-[86px]" : "h-7 w-7"}`}>
               {isImage && fileURL ? (
-                <img src={fileURL} alt={fileName} className="h-7 w-7 object-cover rounded" />
+                <img src={fileURL} alt={fileName} className="h-full w-full object-cover rounded" />
               ) : (
                 fileIcon
               )}

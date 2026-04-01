@@ -61,20 +61,25 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
           window.open(fileURL, "_blank");
         }}
       >
-        <div className="group flex h-11 items-center justify-between gap-3 pr-2 pl-9 hover:bg-surface-2">
+        <div
+          className={`group flex items-center justify-between gap-3 pr-2 hover:bg-surface-2 ${
+            isImage ? "h-[80px] pl-3" : "h-11 pl-9"
+          }`}
+        >
           <div className="flex items-center gap-3 truncate text-13">
-            <div className="flex items-center gap-3 flex-shrink-0 overflow-hidden rounded">
+            <div className={`flex-shrink-0 overflow-hidden rounded ${isImage ? "h-[64px] w-[86px]" : ""}`}>
               {isImage && fileURL ? (
-                <img src={fileURL} alt={fileName} className="h-[18px] w-[18px] object-cover rounded" />
+                <img src={fileURL} alt={fileName} className="h-full w-full object-cover rounded" />
               ) : (
                 fileIcon
               )}
             </div>
-            <Tooltip tooltipContent={`${fileName}.${fileExtension}`} isMobile={isMobile}>
-              <p className="truncate font-medium text-secondary">{`${fileName}.${fileExtension}`}</p>
-            </Tooltip>
-            <span className="flex size-1.5 rounded-full bg-layer-1" />
-            <span className="flex-shrink-0 text-placeholder">{convertBytesToSize(attachment.attributes.size)}</span>
+            <div className="flex flex-col gap-1 truncate">
+              <Tooltip tooltipContent={`${fileName}.${fileExtension}`} isMobile={isMobile}>
+                <p className="truncate font-medium text-secondary">{`${fileName}.${fileExtension}`}</p>
+              </Tooltip>
+              <span className="flex-shrink-0 text-xs text-placeholder">{convertBytesToSize(attachment.attributes.size)}</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

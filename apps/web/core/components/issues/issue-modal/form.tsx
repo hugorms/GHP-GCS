@@ -49,6 +49,7 @@ import { DuplicateModalRoot } from "@/plane-web/components/de-dupe/duplicate-mod
 import { IssueTypeSelect, WorkItemTemplateSelect } from "@/plane-web/components/issues/issue-modal";
 import { WorkItemModalAdditionalProperties } from "@/plane-web/components/issues/issue-modal/modal-additional-properties";
 import { useDebouncedDuplicateIssues } from "@/plane-web/hooks/use-debounced-duplicate-issues";
+import { TemplateCasoSocialButton } from "./template-button";
 
 export interface IssueFormProps {
   data?: Partial<TIssue>;
@@ -313,6 +314,13 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     else onChange(null);
   };
 
+  const handleInsertTemplate = (html: string) => {
+    if (editorRef.current) {
+      editorRef.current.setEditorValue(html);
+      setValue("description_html", html);
+    }
+  };
+
   // debounced duplicate issues swr
   const { duplicateIssues } = useDebouncedDuplicateIssues(
     workspaceSlug?.toString(),
@@ -458,6 +466,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
               )}
             >
               <div className="px-5">
+                <TemplateCasoSocialButton onInsert={handleInsertTemplate} />
                 <IssueDescriptionEditor
                   control={control}
                   isDraft={isDraft}

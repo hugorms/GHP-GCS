@@ -1,8 +1,11 @@
 # Construye y publica la imagen de apps/api en GitHub Container Registry.
 # Imagen: ghcr.io/bibliotecaven/ghp-gcs-api
 #
-# Si el repo no está bajo la org bibliotecaven, usa un PAT con write:packages
-# y guárdalo como GHCR_TOKEN; el usuario de login debe coincidir con el del PAT.
+# GHCR_TOKEN (PAT): debe incluir write:packages. Solo read:packages provoca:
+#   denied: permission_denied: The token provided does not match expected scopes
+# - PAT classic: marcar "write:packages" (suele incluir read).
+# - PAT fine-grained: permiso "Packages" = Read and write en el repo/org del paquete.
+# Login: usuario = dueño del PAT (github.actor o secreto GHCR_USERNAME si difiere).
 
 name: GHCR — API
 
@@ -42,7 +45,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
+          # Usuario GitHub del dueño del PAT (si GHCR_USERNAME no está definido, usa el actor del workflow).
+          username: ${{ secrets.GHCR_USERNAME || github.actor }}
           password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Docker metadata (tags, labels)

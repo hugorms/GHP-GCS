@@ -46,6 +46,7 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
   const fileExtension = getFileExtension(attachment?.attributes.name ?? "");
   const fileIcon = getFileIcon(fileExtension, 18);
   const fileURL = getFileURL(attachment?.asset_url ?? "");
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(attachment?.attributes.name ?? "");
   // hooks
   const { isMobile } = usePlatformOS();
 
@@ -62,7 +63,13 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
       >
         <div className="group flex h-11 items-center justify-between gap-3 pr-2 pl-9 hover:bg-surface-2">
           <div className="flex items-center gap-3 truncate text-13">
-            <div className="flex items-center gap-3">{fileIcon}</div>
+            <div className="flex items-center gap-3 flex-shrink-0 overflow-hidden rounded">
+              {isImage && fileURL ? (
+                <img src={fileURL} alt={fileName} className="h-[18px] w-[18px] object-cover rounded" />
+              ) : (
+                fileIcon
+              )}
+            </div>
             <Tooltip tooltipContent={`${fileName}.${fileExtension}`} isMobile={isMobile}>
               <p className="truncate font-medium text-secondary">{`${fileName}.${fileExtension}`}</p>
             </Tooltip>

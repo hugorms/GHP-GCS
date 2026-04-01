@@ -24,6 +24,7 @@ import { IssueAttachmentsListItem } from "./attachment-list-item";
 import { IssueAttachmentsUploadItem } from "./attachment-list-upload-item";
 // types
 import { IssueAttachmentDeleteModal } from "./delete-attachment-modal";
+import { ImageCropModal } from "./image-crop-modal";
 
 type TIssueAttachmentItemList = {
   workspaceSlug: string;
@@ -46,6 +47,7 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
   const { t } = useTranslation();
   // states
   const [isUploading, setIsUploading] = useState(false);
+  const [cropData, setCropData] = useState<{ src: string; file: File } | null>(null);
   // store hooks
   const {
     attachment: { getAttachmentsByIssueId },
@@ -66,6 +68,25 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
     fetchActivities(workspaceSlug, projectId, issueId);
   }, [fetchActivities, workspaceSlug, projectId, issueId]);
 
+  const uploadFile = useCallback(
+    (file: File) => {
+      setIsUploading(true);
+      createAttachment(file)
+        .catch(() => {
+          setToast({
+            type: TOAST_TYPE.ERROR,
+            title: t("toast.error"),
+            message: t("attachment.error"),
+          });
+        })
+        .finally(() => {
+          handleFetchPropertyActivities();
+          setIsUploading(false);
+        });
+    },
+    [createAttachment, handleFetchPropertyActivities, t]
+  );
+
   const onDrop = useCallback(
     (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
       const totalAttachedFiles = acceptedFiles.length + rejectedFiles.length;
@@ -74,19 +95,13 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
         const currentFile: File = acceptedFiles[0];
         if (!currentFile || !workspaceSlug) return;
 
-        setIsUploading(true);
-        createAttachment(currentFile)
-          .catch(() => {
-            setToast({
-              type: TOAST_TYPE.ERROR,
-              title: t("toast.error"),
-              message: t("attachment.error"),
-            });
-          })
-          .finally(() => {
-            handleFetchPropertyActivities();
-            setIsUploading(false);
-          });
+        if (/\.(jpg|jpeg|png|webp|gif)$/i.test(currentFile.name)) {
+          const reader = new FileReader();
+          reader.onload = () => setCropData({ src: reader.result as string, file: currentFile });
+          reader.readAsDataURL(currentFile);
+        } else {
+          uploadFile(currentFile);
+        }
         return;
       }
 
@@ -100,7 +115,7 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
       });
       return;
     },
-    [createAttachment, maxFileSize, workspaceSlug, handleFetchPropertyActivities]
+    [uploadFile, maxFileSize, workspaceSlug]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -112,6 +127,17 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
 
   return (
     <>
+      {cropData && (
+        <ImageCropModal
+          imageSrc={cropData.src}
+          fileName={cropData.file.name}
+          onConfirm={(croppedFile) => {
+            setCropData(null);
+            uploadFile(croppedFile);
+          }}
+          onCancel={() => setCropData(null)}
+        />
+      )}
       {uploadStatus?.map((uploadStatus) => (
         <IssueAttachmentsUploadItem key={uploadStatus.id} uploadStatus={uploadStatus} />
       ))}

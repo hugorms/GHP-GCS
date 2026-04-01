@@ -56,6 +56,7 @@ export const IssueAttachmentsDetail = observer(function IssueAttachmentsDetail(p
   const fileExtension = getFileExtension(attachment?.asset_url ?? "");
   const fileIcon = getFileIcon(fileExtension, 28);
   const fileURL = getFileURL(attachment?.asset_url ?? "");
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(attachment?.attributes.name ?? "");
   // hooks
   const { isMobile } = usePlatformOS();
 
@@ -74,7 +75,13 @@ export const IssueAttachmentsDetail = observer(function IssueAttachmentsDetail(p
       <div className="flex h-[60px] items-center justify-between gap-1 rounded-md border-[2px] border-subtle bg-surface-1 px-4 py-2 text-13">
         <Link href={fileURL ?? ""} target="_blank" rel="noopener noreferrer">
           <div className="flex items-center gap-3">
-            <div className="h-7 w-7">{fileIcon}</div>
+            <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded">
+              {isImage && fileURL ? (
+                <img src={fileURL} alt={fileName} className="h-7 w-7 object-cover rounded" />
+              ) : (
+                fileIcon
+              )}
+            </div>
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <Tooltip tooltipContent={fileName} isMobile={isMobile}>

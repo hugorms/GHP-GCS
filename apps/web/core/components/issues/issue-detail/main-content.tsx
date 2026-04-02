@@ -32,6 +32,7 @@ import { IssueDetailWidgets } from "../issue-detail-widgets";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
 import { IssueTitleInput } from "../title-input";
+import { SocialCaseForm } from "@/components/issues/social-case-form";
 import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
@@ -131,6 +132,8 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           value={issue.name}
           containerClassName="-ml-3"
         />
+
+        <SocialCaseForm issueId={issue.id} />
 
         <DescriptionInput
           issueSequenceId={issue.sequence_id}

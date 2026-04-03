@@ -133,7 +133,16 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           containerClassName="-ml-3"
         />
 
-        <SocialCaseForm issueId={issue.id} mode="view" />
+        <SocialCaseForm
+          issueId={issue.id}
+          mode="view"
+          descriptionHtml={issue.description_html ?? ""}
+          onSave={async (newHtml) => {
+            await issueOperations.update(workspaceSlug, issue.project_id, issue.id, {
+              description_html: newHtml,
+            });
+          }}
+        />
 
         <DescriptionInput
           issueSequenceId={issue.sequence_id}

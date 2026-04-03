@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@plane/propel/button";
 import { cn } from "@plane/utils";
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 type SocialCaseData = {
   cedula: string;
@@ -19,6 +21,15 @@ type SocialCaseData = {
   fechaResolucion: string;
 };
 
+type Props = {
+  issueId?: string;
+  mode: "create" | "view";
+  descriptionHtml?: string;
+  onSave?: (newDescriptionHtml: string) => Promise<void>;
+};
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
 const EMPTY: SocialCaseData = {
   cedula: "", nombre: "", telefono: "", direccion: "",
   parroquia: "", municipio: "", entidad: "", jornada: "",
@@ -27,24 +38,29 @@ const EMPTY: SocialCaseData = {
 };
 
 const TIPOS = [
-  "Electrodomesticos",
-  "Alimentacion",
-  "Salud",
-  "Vivienda",
-  "Documentacion",
-  "Educacion",
-  "Servicios Publicos",
-  "Pensiones y Beneficios",
-  "Otro",
+  "Electrodomesticos", "Alimentacion", "Salud", "Vivienda",
+  "Documentacion", "Educacion", "Servicios Publicos",
+  "Pensiones y Beneficios", "Otro",
 ];
 
 const PENDING_KEY = "social_case_pending";
-const storageKey = (id: string) => `social_case_${id}`;
+const MARKER_RE = /<!--SOCIAL_CASE:([\s\S]*?)-->/;
 
-type Props = {
-  issueId?: string;
-  mode: "create" | "view";
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const extractFromHtml = (html: string): SocialCaseData | null => {
+  const match = html?.match(MARKER_RE);
+  if (!match) return null;
+  try { return JSON.parse(match[1]); } catch { return null; }
 };
+
+const injectIntoHtml = (html: string, data: SocialCaseData): string => {
+  const tag = `<!--SOCIAL_CASE:${JSON.stringify(data)}-->`;
+  const cleaned = (html ?? "").replace(MARKER_RE, "");
+  return tag + cleaned;
+};
+
+// ── Styles ───────────────────────────────────────────────────────────────────
 
 const sectionHeadClass = cn(
   "inline-block rounded px-2.5 py-1 text-xs font-semibold uppercase tracking-widest",
@@ -53,22 +69,21 @@ const sectionHeadClass = cn(
 
 const labelClass = "block text-xs font-medium text-secondary mb-1 uppercase tracking-wide";
 
-export const SocialCaseForm = ({ issueId, mode }: Props) => {
+const fieldBase = "w-full rounded-md border-[0.5px] text-13 px-2.5 py-1.5 transition-colors";
+const fieldEditable = "border-subtle bg-surface-2 text-primary placeholder:text-placeholder focus:border-strong focus:outline-none";
+const fieldReadonly = "border-transparent bg-surface-1 text-primary cursor-default outline-none";
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
+  const migrated = useRef(false);
 
-  // Clases de campo según estado editable
-  const fieldClass = (editable: boolean) =>
-    cn(
-      "w-full rounded-md border-[0.5px] text-13 px-2.5 py-1.5 transition-colors",
-      editable
-        ? "border-subtle bg-surface-2 text-primary placeholder:text-placeholder focus:border-strong focus:outline-none"
-        : "border-transparent bg-surface-1 text-primary cursor-default outline-none"
-    );
-
-  // ── Carga de datos ──────────────────────────────────────────────────────────
+  // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (mode === "create") {
       try {
@@ -78,26 +93,34 @@ export const SocialCaseForm = ({ issueId, mode }: Props) => {
       return;
     }
 
-    if (!issueId) return;
+    // modo view: leer desde description_html
+    const extracted = extractFromHtml(descriptionHtml);
+    if (extracted) {
+      setData(extracted);
+      return;
+    }
 
-    try {
-      const stored = localStorage.getItem(storageKey(issueId));
-      if (stored) {
-        setData(JSON.parse(stored));
-        return;
-      }
-      // Migrar datos pendientes al issue recién creado
-      const pending = localStorage.getItem(PENDING_KEY);
-      if (pending) {
-        const parsed = JSON.parse(pending);
-        setData(parsed);
-        localStorage.setItem(storageKey(issueId), pending);
-        localStorage.removeItem(PENDING_KEY);
-      }
-    } catch (_) {}
-  }, [issueId, mode]);
+    // si no hay datos en DB pero hay pendientes en localStorage → migrar a DB
+    if (!migrated.current && issueId && onSave) {
+      try {
+        const pending = localStorage.getItem(PENDING_KEY);
+        if (pending) {
+          migrated.current = true;
+          const parsed: SocialCaseData = JSON.parse(pending);
+          setData(parsed);
+          const newHtml = injectIntoHtml(descriptionHtml, parsed);
+          onSave(newHtml).then(() => {
+            localStorage.removeItem(PENDING_KEY);
+          }).catch(() => {
+            migrated.current = false;
+          });
+        }
+      } catch (_) {}
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issueId, mode, descriptionHtml]);
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const update = (field: keyof SocialCaseData, value: string) => {
     setData((prev) => {
       const next = { ...prev, [field]: value };
@@ -109,19 +132,35 @@ export const SocialCaseForm = ({ issueId, mode }: Props) => {
     setSaved(false);
   };
 
-  const save = () => {
+  const save = async () => {
+    if (mode === "create") {
+      try {
+        localStorage.setItem(PENDING_KEY, JSON.stringify(data));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } catch (_) {}
+      return;
+    }
+
+    if (!onSave) return;
+    setSaving(true);
     try {
-      const key = mode === "create" ? PENDING_KEY : storageKey(issueId!);
-      localStorage.setItem(key, JSON.stringify(data));
+      const newHtml = injectIntoHtml(descriptionHtml, data);
+      await onSave(newHtml);
       setSaved(true);
-      if (mode === "view") setEditing(false);
+      setEditing(false);
       setTimeout(() => setSaved(false), 2000);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      setSaving(false);
+    }
   };
 
   const isEditable = mode === "create" || editing;
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const fc = (editable: boolean) => cn(fieldBase, editable ? fieldEditable : fieldReadonly);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="my-3 overflow-hidden rounded-md border-[0.5px] border-subtle bg-surface-1">
 
@@ -146,33 +185,33 @@ export const SocialCaseForm = ({ issueId, mode }: Props) => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Cedula de identidad</label>
-                <input disabled={!isEditable} className={fieldClass(isEditable)} placeholder="V-00.000.000" value={data.cedula} onChange={(e) => update("cedula", e.target.value)} />
+                <input disabled={!isEditable} className={fc(isEditable)} placeholder="V-00.000.000" value={data.cedula} onChange={(e) => update("cedula", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Nombre completo</label>
-                <input disabled={!isEditable} className={fieldClass(isEditable)} placeholder="Nombre y apellido" value={data.nombre} onChange={(e) => update("nombre", e.target.value)} />
+                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Nombre y apellido" value={data.nombre} onChange={(e) => update("nombre", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Telefono</label>
-                <input disabled={!isEditable} className={fieldClass(isEditable)} placeholder="0424-000.00.00" value={data.telefono} onChange={(e) => update("telefono", e.target.value)} />
+                <input disabled={!isEditable} className={fc(isEditable)} placeholder="0424-000.00.00" value={data.telefono} onChange={(e) => update("telefono", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Direccion</label>
-                <input disabled={!isEditable} className={fieldClass(isEditable)} placeholder="Barrio, sector, calle..." value={data.direccion} onChange={(e) => update("direccion", e.target.value)} />
+                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Barrio, sector, calle..." value={data.direccion} onChange={(e) => update("direccion", e.target.value)} />
               </div>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-3">
               <div>
                 <label className={labelClass}>Parroquia</label>
-                <input disabled={!isEditable} className={fieldClass(isEditable)} placeholder="Parroquia" value={data.parroquia} onChange={(e) => update("parroquia", e.target.value)} />
+                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Parroquia" value={data.parroquia} onChange={(e) => update("parroquia", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Municipio</label>
-                <input disabled={!isEditable} className={fieldClass(isEditable)} placeholder="Municipio" value={data.municipio} onChange={(e) => update("municipio", e.target.value)} />
+                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Municipio" value={data.municipio} onChange={(e) => update("municipio", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Estado</label>
-                <input disabled={!isEditable} className={fieldClass(isEditable)} placeholder="Estado" value={data.entidad} onChange={(e) => update("entidad", e.target.value)} />
+                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Estado" value={data.entidad} onChange={(e) => update("entidad", e.target.value)} />
               </div>
             </div>
           </div>
@@ -183,20 +222,18 @@ export const SocialCaseForm = ({ issueId, mode }: Props) => {
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={labelClass}>Jornada</label>
-                <input disabled={!isEditable} className={fieldClass(isEditable)} placeholder="Nombre de la jornada" value={data.jornada} onChange={(e) => update("jornada", e.target.value)} />
+                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Nombre de la jornada" value={data.jornada} onChange={(e) => update("jornada", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Tipo de caso</label>
-                <select disabled={!isEditable} className={fieldClass(isEditable)} value={data.tipoCaso} onChange={(e) => update("tipoCaso", e.target.value)}>
+                <select disabled={!isEditable} className={fc(isEditable)} value={data.tipoCaso} onChange={(e) => update("tipoCaso", e.target.value)}>
                   <option value="">Seleccionar...</option>
-                  {TIPOS.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
+                  {TIPOS.map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
               </div>
               <div>
                 <label className={labelClass}>Fecha de atencion</label>
-                <input type="date" disabled={!isEditable} className={fieldClass(isEditable)} value={data.fechaAtencion} onChange={(e) => update("fechaAtencion", e.target.value)} />
+                <input type="date" disabled={!isEditable} className={fc(isEditable)} value={data.fechaAtencion} onChange={(e) => update("fechaAtencion", e.target.value)} />
               </div>
             </div>
           </div>
@@ -207,20 +244,20 @@ export const SocialCaseForm = ({ issueId, mode }: Props) => {
             <div className="space-y-3">
               <div>
                 <label className={labelClass}>Referencia del caso</label>
-                <textarea disabled={!isEditable} className={cn(fieldClass(isEditable), "min-h-[64px] resize-y leading-relaxed")} placeholder="Describe por que llego el caso y que solicito el ciudadano..." value={data.referencia} onChange={(e) => update("referencia", e.target.value)} />
+                <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")} placeholder="Describe por que llego el caso y que solicito el ciudadano..." value={data.referencia} onChange={(e) => update("referencia", e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Accion tomada</label>
-                <textarea disabled={!isEditable} className={cn(fieldClass(isEditable), "min-h-[64px] resize-y leading-relaxed")} placeholder="Describe que se hizo para atender el caso..." value={data.accionTomada} onChange={(e) => update("accionTomada", e.target.value)} />
+                <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")} placeholder="Describe que se hizo para atender el caso..." value={data.accionTomada} onChange={(e) => update("accionTomada", e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Resultado / Beneficio otorgado</label>
-                  <textarea disabled={!isEditable} className={cn(fieldClass(isEditable), "min-h-[52px] resize-y leading-relaxed")} placeholder="Que se otorgo o por que no se pudo resolver..." value={data.resultado} onChange={(e) => update("resultado", e.target.value)} />
+                  <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[52px] resize-y leading-relaxed")} placeholder="Que se otorgo o por que no se pudo resolver..." value={data.resultado} onChange={(e) => update("resultado", e.target.value)} />
                 </div>
                 <div>
                   <label className={labelClass}>Fecha de resolucion</label>
-                  <input type="date" disabled={!isEditable} className={fieldClass(isEditable)} value={data.fechaResolucion} onChange={(e) => update("fechaResolucion", e.target.value)} />
+                  <input type="date" disabled={!isEditable} className={fc(isEditable)} value={data.fechaResolucion} onChange={(e) => update("fechaResolucion", e.target.value)} />
                 </div>
               </div>
             </div>
@@ -234,7 +271,7 @@ export const SocialCaseForm = ({ issueId, mode }: Props) => {
               </Button>
             )}
             {isEditable && (
-              <Button type="button" variant="primary" size="sm" onClick={save}>
+              <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
                 {saved ? "Guardado" : "Guardar ficha"}
               </Button>
             )}

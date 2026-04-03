@@ -75,6 +75,8 @@ CUSTOM_TAGS = {
     "label",
     "input",
     "image-component",
+    # social case form
+    "caption",
 }
 ALLOWED_TAGS = nh3.ALLOWED_TAGS | CUSTOM_TAGS
 
@@ -95,6 +97,8 @@ ATTRIBUTES = {
         # (wildcards like data-* are NOT supported by nh3; we add known keys
         # here and dynamically include all data-* seen in the input below)
         "data-tight",
+        # social case form table identifier
+        "data-social-case",
         "data-node-type",
         "data-type",
         "data-checked",
@@ -149,6 +153,8 @@ ATTRIBUTES = {
         "textColor",
         "textcolor",
         "style",
+        # social case form field identifier
+        "data-key",
     },
     "tr": {"background", "textColor", "textcolor", "style"},
     "pre": {"language"},

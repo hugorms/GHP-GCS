@@ -23,7 +23,10 @@ type SocialCaseData = {
 
 type Props = {
   issueId?: string;
-  mode: "create" | "view";
+  // "create"          → editable, guarda en localStorage, muestra botón Guardar
+  // "create-no-save"  → editable, guarda en localStorage, sin botón Guardar (el modal lo hace)
+  // "view"            → solo lectura con botón Editar
+  mode: "create" | "create-no-save" | "view";
   descriptionHtml?: string;
   onSave?: (newDescriptionHtml: string) => Promise<void>;
 };
@@ -43,7 +46,7 @@ const TIPOS = [
   "Pensiones y Beneficios", "Otro",
 ];
 
-const PENDING_KEY = "social_case_pending";
+export const PENDING_KEY = "social_case_pending";
 
 // Marcador de inicio y fin de la tabla de la ficha dentro del description_html
 const TABLE_START = '<table data-social-case="1">';
@@ -92,7 +95,7 @@ const extractFromHtml = (html: string): SocialCaseData | null => {
 };
 
 /** Construye la tabla HTML con los datos y la inyecta al inicio del description_html */
-const injectIntoHtml = (html: string, data: SocialCaseData): string => {
+export const injectSocialCaseIntoHtml = (html: string, data: SocialCaseData): string => {
   const rows = FIELDS.map(
     ({ key, label }) =>
       `<tr><td data-key="${key}" style="font-weight:600;padding:3px 10px 3px 0;white-space:nowrap;color:#6b7280;font-size:12px;">${label}</td>` +
@@ -134,7 +137,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (mode === "create") {
+    if (mode === "create" || mode === "create-no-save") {
       try {
         const stored = localStorage.getItem(PENDING_KEY);
         if (stored) setData(JSON.parse(stored));
@@ -157,7 +160,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
           migrated.current = true;
           const parsed: SocialCaseData = JSON.parse(pending);
           setData(parsed);
-          const newHtml = injectIntoHtml(descriptionHtml, parsed);
+          const newHtml = injectSocialCaseIntoHtml(descriptionHtml, parsed);
           onSave(newHtml).then(() => {
             localStorage.removeItem(PENDING_KEY);
           }).catch(() => {
@@ -173,7 +176,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
   const update = (field: keyof SocialCaseData, value: string) => {
     setData((prev) => {
       const next = { ...prev, [field]: value };
-      if (mode === "create") {
+      if (mode === "create" || mode === "create-no-save") {
         try { localStorage.setItem(PENDING_KEY, JSON.stringify(next)); } catch (_) {}
       }
       return next;
@@ -194,7 +197,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
     if (!onSave) return;
     setSaving(true);
     try {
-      const newHtml = injectIntoHtml(descriptionHtml, data);
+      const newHtml = injectSocialCaseIntoHtml(descriptionHtml, data);
       await onSave(newHtml);
       setSaved(true);
       setEditing(false);
@@ -205,7 +208,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
     }
   };
 
-  const isEditable = mode === "create" || editing;
+  const isEditable = mode === "create" || mode === "create-no-save" || editing;
 
   const fc = (editable: boolean) => cn(fieldBase, editable ? fieldEditable : fieldReadonly);
 
@@ -319,7 +322,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
                 Editar
               </Button>
             )}
-            {isEditable && (
+            {isEditable && mode !== "create-no-save" && (
               <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
                 {saved ? "Guardado" : "Guardar ficha"}
               </Button>

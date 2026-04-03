@@ -49,7 +49,7 @@ import { DuplicateModalRoot } from "@/plane-web/components/de-dupe/duplicate-mod
 import { IssueTypeSelect, WorkItemTemplateSelect } from "@/plane-web/components/issues/issue-modal";
 import { WorkItemModalAdditionalProperties } from "@/plane-web/components/issues/issue-modal/modal-additional-properties";
 import { useDebouncedDuplicateIssues } from "@/plane-web/hooks/use-debounced-duplicate-issues";
-import { SocialCaseForm } from "@/components/issues/social-case-form";
+import { SocialCaseForm, PENDING_KEY, injectSocialCaseIntoHtml } from "@/components/issues/social-case-form";
 
 export interface IssueFormProps {
   data?: Partial<TIssue>;
@@ -219,6 +219,21 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
   }, [workItemTemplateId]);
 
   const handleFormSubmit = async (formData: Partial<TIssue>, is_draft_issue = false) => {
+    // Inyectar datos de la ficha social en description_html antes de guardar
+    if (!data?.id) {
+      try {
+        const pending = localStorage.getItem(PENDING_KEY);
+        if (pending) {
+          const socialData = JSON.parse(pending);
+          formData.description_html = injectSocialCaseIntoHtml(
+            formData.description_html ?? "<p></p>",
+            socialData
+          );
+          localStorage.removeItem(PENDING_KEY);
+        }
+      } catch (_) {}
+    }
+
     // Check if the editor is ready to discard
     if (!editorRef.current?.isEditorReadyToDiscard()) {
       setToast({
@@ -460,7 +475,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
               )}
             >
               <div className="px-5">
-                <SocialCaseForm mode="create" />
+                <SocialCaseForm mode="create-no-save" />
                 <IssueDescriptionEditor
                   control={control}
                   isDraft={isDraft}

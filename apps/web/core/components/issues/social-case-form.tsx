@@ -74,6 +74,15 @@ const FIELDS: { key: keyof SocialCaseData; label: string }[] = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Escapa caracteres HTML especiales para evitar XSS al inyectar valores en la tabla */
+const escapeHtml = (str: string): string =>
+  str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 /** Lee la tabla del description_html y reconstruye el objeto SocialCaseData.
  *  Estrategia dual:
  *  1. Primero intenta leer el JSON del <caption> (robusto, ProseMirror lo conserva como texto)
@@ -122,7 +131,7 @@ export const injectSocialCaseIntoHtml = (html: string, data: SocialCaseData): st
   const rows = FIELDS.map(
     ({ key, label }) =>
       `<tr><td data-key="${key}" style="font-weight:600;padding:3px 10px 3px 0;white-space:nowrap;color:#6b7280;font-size:12px;">${label}</td>` +
-      `<td style="padding:3px 0;font-size:13px;">${data[key] ?? ""}</td></tr>`
+      `<td style="padding:3px 0;font-size:13px;">${escapeHtml(data[key] ?? "")}</td></tr>`
   ).join("");
 
   // caption oculto con JSON completo — respaldo si ProseMirror reescribe data-key

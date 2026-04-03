@@ -28,6 +28,7 @@ import { FileService } from "@/services/file.service";
 const fileService = new FileService();
 // local imports
 import { CreateIssueToastActionItems } from "../create-issue-toast-action-items";
+import { PENDING_KEY } from "@/components/issues/social-case-form";
 import { DraftIssueLayout } from "./draft-issue-layout";
 import { IssueFormRoot } from "./form";
 import type { IssueFormProps } from "./form";
@@ -149,6 +150,12 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
   const handleClose = (saveAsDraft?: boolean) => {
     if (changesMade && saveAsDraft && !data) {
       handleCreateIssue(changesMade, true);
+    }
+
+    // Limpiar la ficha pendiente al cerrar el modal sin guardar
+    // (si guarda como borrador se conserva para continuar después)
+    if (!saveAsDraft && !data) {
+      try { localStorage.removeItem(PENDING_KEY); } catch (_) {}
     }
 
     setActiveProjectId(null);

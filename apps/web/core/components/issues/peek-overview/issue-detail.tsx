@@ -33,7 +33,7 @@ import type { TIssueOperations } from "../issue-detail";
 import { IssueParentDetail } from "../issue-detail/parent";
 import { IssueReaction } from "../issue-detail/reactions";
 import { IssueTitleInput } from "../title-input";
-import { SocialCaseForm } from "@/components/issues/social-case-form";
+import { SocialCaseForm, stripSocialCaseFromHtml, injectSocialCaseIntoHtml, extractFromHtml } from "@/components/issues/social-case-form";
 // services init
 const workItemVersionService = new WorkItemVersionService();
 
@@ -93,7 +93,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
   const issueDescription =
     issue.description_html !== undefined || issue.description_html !== null
       ? issue.description_html != ""
-        ? issue.description_html
+        ? stripSocialCaseFromHtml(issue.description_html)
         : "<p></p>"
       : undefined;
 
@@ -154,8 +154,13 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         key={issue.id}
         onSubmit={async (value, isMigrationUpdate) => {
           if (!issue.id || !issue.project_id) return;
+          // Re-inyectar la ficha en el HTML antes de guardar para no perderla
+          const existingData = extractFromHtml(issue.description_html ?? "");
+          const finalHtml = existingData
+            ? injectSocialCaseIntoHtml(value.description_html ?? "<p></p>", existingData)
+            : (value.description_html ?? "<p></p>");
           await issueOperations.update(workspaceSlug, issue.project_id, issue.id, {
-            description_html: value.description_html,
+            description_html: finalHtml,
             ...(isMigrationUpdate ? { skip_activity: "true" } : {}),
           });
         }}

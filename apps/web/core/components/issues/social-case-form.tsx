@@ -79,7 +79,7 @@ const FIELDS: { key: keyof SocialCaseData; label: string }[] = [
  *  1. Primero intenta leer el JSON del <caption> (robusto, ProseMirror lo conserva como texto)
  *  2. Si no, reconstruye campo a campo leyendo data-key de cada <td>
  */
-const extractFromHtml = (html: string): SocialCaseData | null => {
+export const extractFromHtml = (html: string): SocialCaseData | null => {
   if (!html?.match(TABLE_RE)) return null;
   try {
     const parser = new DOMParser();
@@ -114,6 +114,10 @@ const extractFromHtml = (html: string): SocialCaseData | null => {
  *  Incluye un <caption> con el JSON completo como respaldo de lectura
  *  por si ProseMirror reescribe los atributos data-key de las celdas.
  */
+/** Elimina la tabla de la ficha del description_html para pasarle al editor solo el texto limpio */
+export const stripSocialCaseFromHtml = (html: string): string =>
+  (html ?? "").replace(TABLE_RE, "");
+
 export const injectSocialCaseIntoHtml = (html: string, data: SocialCaseData): string => {
   const rows = FIELDS.map(
     ({ key, label }) =>
@@ -338,7 +342,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
               )}
               {editing && (
                 <>
-                  <Button type="button" variant="neutral-primary" size="sm" onClick={() => { setData(savedData.current); setEditing(false); }}>
+                  <Button type="button" variant="tertiary" size="sm" onClick={() => { setData(savedData.current); setEditing(false); }}>
                     Cancelar
                   </Button>
                   <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>

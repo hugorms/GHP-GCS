@@ -32,7 +32,7 @@ import { IssueDetailWidgets } from "../issue-detail-widgets";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
 import { IssueTitleInput } from "../title-input";
-import { SocialCaseForm } from "@/components/issues/social-case-form";
+import { SocialCaseForm, stripSocialCaseFromHtml, injectSocialCaseIntoHtml, extractFromHtml } from "@/components/issues/social-case-form";
 import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
@@ -151,12 +151,17 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           editorRef={editorRef}
           entityId={issue.id}
           fileAssetType={EFileAssetType.ISSUE_DESCRIPTION}
-          initialValue={issue.description_html}
+          initialValue={stripSocialCaseFromHtml(issue.description_html ?? "")}
           key={issue.id}
           onSubmit={async (value, isMigrationUpdate) => {
             if (!issue.id || !issue.project_id) return;
+            // Re-inyectar la ficha en el HTML antes de guardar para no perderla
+            const existingData = extractFromHtml(issue.description_html ?? "");
+            const finalHtml = existingData
+              ? injectSocialCaseIntoHtml(value.description_html ?? "<p></p>", existingData)
+              : (value.description_html ?? "<p></p>");
             await issueOperations.update(workspaceSlug, issue.project_id, issue.id, {
-              description_html: value.description_html,
+              description_html: finalHtml,
               ...(isMigrationUpdate ? { skip_activity: "true" } : {}),
             });
           }}

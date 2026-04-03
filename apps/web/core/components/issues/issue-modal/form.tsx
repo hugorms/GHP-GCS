@@ -106,6 +106,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
   // states
   const [gptAssistantModal, setGptAssistantModal] = useState(false);
   const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [socialFormKey, setSocialFormKey] = useState(0);
 
   // refs
   const editorRef = useRef<EditorRefApi>(null);
@@ -220,6 +221,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
   const handleFormSubmit = async (formData: Partial<TIssue>, is_draft_issue = false) => {
     // Inyectar datos de la ficha social en description_html antes de guardar
+    let pendingKey: string | null = null;
     if (!data?.id) {
       try {
         const pending = localStorage.getItem(PENDING_KEY);
@@ -229,7 +231,8 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
             formData.description_html ?? "<p></p>",
             socialData
           );
-          localStorage.removeItem(PENDING_KEY);
+          // Guardar la clave para borrarla SOLO si el issue se crea exitosamente
+          pendingKey = PENDING_KEY;
         }
       } catch (_) {}
     }
@@ -269,6 +272,12 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
     await onSubmit(submitData, is_draft_issue)
       .then(() => {
+        // Borrar el pending SOLO después de confirmar que el issue se creó correctamente
+        if (pendingKey) {
+          try { localStorage.removeItem(pendingKey); } catch (_) {}
+        }
+        // Resetear el SocialCaseForm para que quede en blanco en el próximo item
+        setSocialFormKey((k) => k + 1);
         setGptAssistantModal(false);
         if (isCreateMoreToggleEnabled && workItemTemplateId) {
           handleTemplateChange({
@@ -475,7 +484,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
               )}
             >
               <div className="px-5">
-                <SocialCaseForm mode="create-no-save" />
+                <SocialCaseForm key={socialFormKey} mode="create-no-save" />
                 <IssueDescriptionEditor
                   control={control}
                   isDraft={isDraft}

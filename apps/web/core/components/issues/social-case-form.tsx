@@ -157,6 +157,9 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
   const [editing, setEditing] = useState(false);
   const migrated = useRef(false);
   const savedData = useRef<SocialCaseData>(EMPTY);
+  // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
+  const latestDescHtml = useRef(descriptionHtml);
+  useEffect(() => { latestDescHtml.current = descriptionHtml; });
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -214,7 +217,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
     if (!onSave) return;
     setSaving(true);
     try {
-      const newHtml = injectSocialCaseIntoHtml(descriptionHtml, data);
+      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, data);
       await onSave(newHtml);
       setSaved(true);
       setEditing(false);

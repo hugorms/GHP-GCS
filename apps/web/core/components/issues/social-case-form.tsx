@@ -164,7 +164,6 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
-  const migrated = useRef(false);
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
   const latestDescHtml = useRef(descriptionHtml);
@@ -191,18 +190,24 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
     }
 
     // si no hay datos en DB pero hay pendientes en localStorage → migrar a DB
-    if (!migrated.current && issueId && onSave) {
+    // Usamos sessionStorage por issueId para que el guard sobreviva re-mounts
+    const migratedKey = issueId ? `social_case_migrated_${issueId}` : null;
+    const alreadyMigrated = migratedKey ? sessionStorage.getItem(migratedKey) === "1" : false;
+
+    if (!alreadyMigrated && issueId && onSave) {
       try {
         const pending = localStorage.getItem(PENDING_KEY);
         if (pending) {
-          migrated.current = true;
+          if (migratedKey) sessionStorage.setItem(migratedKey, "1");
           const parsed: SocialCaseData = JSON.parse(pending);
           setData(parsed);
-          const newHtml = injectSocialCaseIntoHtml(descriptionHtml, parsed);
+          const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, parsed);
           onSave(newHtml).then(() => {
             localStorage.removeItem(PENDING_KEY);
+            // Limpiar el guard de sesión una vez confirmado — ya está en DB
+            if (migratedKey) sessionStorage.removeItem(migratedKey);
           }).catch(() => {
-            migrated.current = false;
+            if (migratedKey) sessionStorage.removeItem(migratedKey);
           });
         }
       } catch (_) {}

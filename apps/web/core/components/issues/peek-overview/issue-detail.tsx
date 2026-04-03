@@ -132,7 +132,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         containerClassName="-ml-3"
       />
 
-      <SocialCaseForm issueId={issue.id} />
+      <SocialCaseForm issueId={issue.id} mode="view" />
 
       <DescriptionInput
         issueSequenceId={issue.sequence_id}

@@ -133,7 +133,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           containerClassName="-ml-3"
         />
 
-        <SocialCaseForm issueId={issue.id} />
+        <SocialCaseForm issueId={issue.id} mode="view" />
 
         <DescriptionInput
           issueSequenceId={issue.sequence_id}

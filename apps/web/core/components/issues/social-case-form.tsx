@@ -145,9 +145,9 @@ export const injectSocialCaseIntoHtml = (html: string, data: SocialCaseData): st
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
-const sectionHeadClass = "block text-xs text-custom-text-300 uppercase tracking-wider mb-3";
+const sectionHeadClass = "block text-xs text-custom-text-300 uppercase tracking-wider mb-2.5";
 
-const labelClass = "block text-xs text-custom-text-300 mb-1";
+const labelClass = "block text-xs text-custom-text-300 mb-0.5";
 
 const fieldBase = "w-full rounded-md border-[0.5px] text-13 px-3 py-1.5 transition-colors";
 const fieldEditable = "border-subtle bg-surface-2 text-primary placeholder:text-placeholder focus:border-strong focus:outline-none";
@@ -243,7 +243,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
 
   // En modo lectura muestra texto plano; en edición muestra el input/select/textarea
   const ro = (value: string, placeholder = "—") =>
-    <span className="text-sm text-custom-text-100">{value || <span className="text-custom-text-400">{placeholder}</span>}</span>;
+    <span className="block text-13 leading-snug text-primary py-1">{value || <span className="text-placeholder">{placeholder}</span>}</span>;
 
   const fc = (editable: boolean) => cn(fieldBase, editable ? fieldEditable : fieldReadonly);
 
@@ -257,7 +257,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between py-1 text-left group"
       >
-        <span className="text-sm font-medium text-custom-text-200 group-hover:text-custom-text-100 transition-colors">
+        <span className="text-sm font-normal text-custom-text-200 group-hover:text-custom-text-100 transition-colors">
           Ficha de Caso Social
         </span>
         <span className="text-xs text-custom-text-400 group-hover:text-custom-text-300 transition-colors">
@@ -271,7 +271,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
           {/* SECCION 1: DATOS DEL CIUDADANO */}
           <div>
             <span className={sectionHeadClass}>Datos del ciudadano</span>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <div>
                 <label className={labelClass}>Cedula de identidad</label>
                 {isEditable
@@ -297,7 +297,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
                   : ro(data.direccion)}
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-x-6 gap-y-4">
+            <div className="mt-3 grid grid-cols-3 gap-x-6 gap-y-3">
               <div>
                 <label className={labelClass}>Parroquia</label>
                 {isEditable
@@ -322,7 +322,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
           {/* SECCION 2: DATOS DEL CASO */}
           <div>
             <span className={sectionHeadClass}>Datos del caso</span>
-            <div className="grid grid-cols-3 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-3 gap-x-6 gap-y-3">
               <div>
                 <label className={labelClass}>Jornada</label>
                 {isEditable
@@ -363,7 +363,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
                   ? <textarea className={cn(fc(true), "min-h-[64px] resize-y leading-relaxed")} placeholder="Describe que se hizo para atender el caso..." value={data.accionTomada} onChange={(e) => update("accionTomada", e.target.value)} />
                   : ro(data.accionTomada)}
               </div>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 <div>
                   <label className={labelClass}>Resultado / Beneficio otorgado</label>
                   {isEditable

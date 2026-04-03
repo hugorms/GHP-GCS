@@ -33,6 +33,7 @@ import type { TIssueOperations } from "../issue-detail";
 import { IssueParentDetail } from "../issue-detail/parent";
 import { IssueReaction } from "../issue-detail/reactions";
 import { IssueTitleInput } from "../title-input";
+import { SocialCaseForm } from "@/components/issues/social-case-form";
 // services init
 const workItemVersionService = new WorkItemVersionService();
 
@@ -130,6 +131,8 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         value={issue.name}
         containerClassName="-ml-3"
       />
+
+      <SocialCaseForm issueId={issue.id} />
 
       <DescriptionInput
         issueSequenceId={issue.sequence_id}

@@ -23,10 +23,9 @@ type SocialCaseData = {
 
 type Props = {
   issueId?: string;
-  // "create"          → editable, guarda en localStorage, muestra botón Guardar
-  // "create-no-save"  → editable, guarda en localStorage, sin botón Guardar (el modal lo hace)
-  // "view"            → solo lectura con botón Editar
-  mode: "create" | "create-no-save" | "view";
+  // "create-no-save"  → editable, guarda en localStorage, sin botón Guardar (el modal lo hace al crear)
+  // "view"            → solo lectura con botón Editar → Guardar ficha (va a la DB)
+  mode: "create-no-save" | "view";
   descriptionHtml?: string;
   onSave?: (newDescriptionHtml: string) => Promise<void>;
 };
@@ -46,7 +45,9 @@ const TIPOS = [
   "Pensiones y Beneficios", "Otro",
 ];
 
-export const PENDING_KEY = "social_case_pending";
+// Clave única por pestaña para evitar colisiones entre tabs simultáneos
+const _tabId = Math.random().toString(36).slice(2);
+export const PENDING_KEY = `social_case_pending_${_tabId}`;
 
 // Marcador de inicio y fin de la tabla de la ficha dentro del description_html
 const TABLE_START = '<table data-social-case="1">';
@@ -73,7 +74,11 @@ const FIELDS: { key: keyof SocialCaseData; label: string }[] = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Lee la tabla del description_html y reconstruye el objeto SocialCaseData */
+/** Lee la tabla del description_html y reconstruye el objeto SocialCaseData.
+ *  Estrategia dual:
+ *  1. Primero intenta leer el JSON del <caption> (robusto, ProseMirror lo conserva como texto)
+ *  2. Si no, reconstruye campo a campo leyendo data-key de cada <td>
+ */
 const extractFromHtml = (html: string): SocialCaseData | null => {
   if (!html?.match(TABLE_RE)) return null;
   try {
@@ -81,6 +86,17 @@ const extractFromHtml = (html: string): SocialCaseData | null => {
     const doc = parser.parseFromString(html, "text/html");
     const table = doc.querySelector('table[data-social-case="1"]');
     if (!table) return null;
+
+    // Estrategia 1: leer JSON del caption
+    const caption = table.querySelector("caption");
+    if (caption?.textContent) {
+      try {
+        const parsed = JSON.parse(caption.textContent);
+        if (parsed && typeof parsed === "object" && "cedula" in parsed) return parsed as SocialCaseData;
+      } catch (_) {}
+    }
+
+    // Estrategia 2: reconstruir desde data-key de cada td
     const rows = table.querySelectorAll("tr");
     if (rows.length === 0) return null;
     const result = { ...EMPTY };
@@ -94,7 +110,10 @@ const extractFromHtml = (html: string): SocialCaseData | null => {
   } catch { return null; }
 };
 
-/** Construye la tabla HTML con los datos y la inyecta al inicio del description_html */
+/** Construye la tabla HTML con los datos y la inyecta al inicio del description_html.
+ *  Incluye un <caption> con el JSON completo como respaldo de lectura
+ *  por si ProseMirror reescribe los atributos data-key de las celdas.
+ */
 export const injectSocialCaseIntoHtml = (html: string, data: SocialCaseData): string => {
   const rows = FIELDS.map(
     ({ key, label }) =>
@@ -102,12 +121,11 @@ export const injectSocialCaseIntoHtml = (html: string, data: SocialCaseData): st
       `<td style="padding:3px 0;font-size:13px;">${data[key] ?? ""}</td></tr>`
   ).join("");
 
-  const table =
-    `${TABLE_START}` +
-    `<tbody>${rows}</tbody>` +
-    `${TABLE_END}`;
+  // caption oculto con JSON completo — respaldo si ProseMirror reescribe data-key
+  const caption = `<caption style="display:none">${JSON.stringify(data)}</caption>`;
 
-  // Eliminar tabla previa si existe, luego colocar la nueva al inicio
+  const table = `${TABLE_START}${caption}<tbody>${rows}</tbody>${TABLE_END}`;
+
   const cleaned = (html ?? "").replace(TABLE_RE, "");
   return table + cleaned;
 };
@@ -137,7 +155,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (mode === "create" || mode === "create-no-save") {
+    if (mode === "create-no-save") {
       try {
         const stored = localStorage.getItem(PENDING_KEY);
         if (stored) setData(JSON.parse(stored));
@@ -176,7 +194,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
   const update = (field: keyof SocialCaseData, value: string) => {
     setData((prev) => {
       const next = { ...prev, [field]: value };
-      if (mode === "create" || mode === "create-no-save") {
+      if (mode === "create-no-save") {
         try { localStorage.setItem(PENDING_KEY, JSON.stringify(next)); } catch (_) {}
       }
       return next;
@@ -185,15 +203,6 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
   };
 
   const save = async () => {
-    if (mode === "create") {
-      try {
-        localStorage.setItem(PENDING_KEY, JSON.stringify(data));
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-      } catch (_) {}
-      return;
-    }
-
     if (!onSave) return;
     setSaving(true);
     try {
@@ -208,7 +217,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
     }
   };
 
-  const isEditable = mode === "create" || mode === "create-no-save" || editing;
+  const isEditable = mode === "create-no-save" || editing;
 
   const fc = (editable: boolean) => cn(fieldBase, editable ? fieldEditable : fieldReadonly);
 

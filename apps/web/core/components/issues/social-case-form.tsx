@@ -44,20 +44,69 @@ const TIPOS = [
 ];
 
 const PENDING_KEY = "social_case_pending";
-const MARKER_RE = /<!--SOCIAL_CASE:([\s\S]*?)-->/;
+
+// Marcador de inicio y fin de la tabla de la ficha dentro del description_html
+const TABLE_START = '<table data-social-case="1">';
+const TABLE_END = "</table>";
+const TABLE_RE = /<table data-social-case="1">[\s\S]*?<\/table>/;
+
+// Campos con sus etiquetas legibles para construir la tabla
+const FIELDS: { key: keyof SocialCaseData; label: string }[] = [
+  { key: "cedula",        label: "Cedula"              },
+  { key: "nombre",        label: "Nombre"              },
+  { key: "telefono",      label: "Telefono"            },
+  { key: "direccion",     label: "Direccion"           },
+  { key: "parroquia",     label: "Parroquia"           },
+  { key: "municipio",     label: "Municipio"           },
+  { key: "entidad",       label: "Estado"              },
+  { key: "jornada",       label: "Jornada"             },
+  { key: "tipoCaso",      label: "Tipo de caso"        },
+  { key: "fechaAtencion", label: "Fecha atencion"      },
+  { key: "referencia",    label: "Referencia"          },
+  { key: "accionTomada",  label: "Accion tomada"       },
+  { key: "resultado",     label: "Resultado"           },
+  { key: "fechaResolucion", label: "Fecha resolucion"  },
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Lee la tabla del description_html y reconstruye el objeto SocialCaseData */
 const extractFromHtml = (html: string): SocialCaseData | null => {
-  const match = html?.match(MARKER_RE);
-  if (!match) return null;
-  try { return JSON.parse(match[1]); } catch { return null; }
+  if (!html?.match(TABLE_RE)) return null;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const table = doc.querySelector('table[data-social-case="1"]');
+    if (!table) return null;
+    const rows = table.querySelectorAll("tr");
+    if (rows.length === 0) return null;
+    const result = { ...EMPTY };
+    rows.forEach((row) => {
+      const cells = row.querySelectorAll("td");
+      if (cells.length < 2) return;
+      const key = cells[0].getAttribute("data-key") as keyof SocialCaseData | null;
+      if (key && key in result) result[key] = cells[1].textContent ?? "";
+    });
+    return result;
+  } catch { return null; }
 };
 
+/** Construye la tabla HTML con los datos y la inyecta al inicio del description_html */
 const injectIntoHtml = (html: string, data: SocialCaseData): string => {
-  const tag = `<!--SOCIAL_CASE:${JSON.stringify(data)}-->`;
-  const cleaned = (html ?? "").replace(MARKER_RE, "");
-  return tag + cleaned;
+  const rows = FIELDS.map(
+    ({ key, label }) =>
+      `<tr><td data-key="${key}" style="font-weight:600;padding:3px 10px 3px 0;white-space:nowrap;color:#6b7280;font-size:12px;">${label}</td>` +
+      `<td style="padding:3px 0;font-size:13px;">${data[key] ?? ""}</td></tr>`
+  ).join("");
+
+  const table =
+    `${TABLE_START}` +
+    `<tbody>${rows}</tbody>` +
+    `${TABLE_END}`;
+
+  // Eliminar tabla previa si existe, luego colocar la nueva al inicio
+  const cleaned = (html ?? "").replace(TABLE_RE, "");
+  return table + cleaned;
 };
 
 // ── Styles ───────────────────────────────────────────────────────────────────

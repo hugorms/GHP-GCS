@@ -57,7 +57,7 @@ const sectionHeadClass = cn(
   "bg-accent-primary/10 text-accent-primary mb-3"
 );
 
-export const SocialCaseForm: React.FC<Props> = ({ issueId }) => {
+export const SocialCaseForm = ({ issueId }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState(true);

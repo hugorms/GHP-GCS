@@ -152,6 +152,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const migrated = useRef(false);
+  const savedData = useRef<SocialCaseData>(EMPTY);
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -162,6 +163,9 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
       } catch (_) {}
       return;
     }
+
+    // modo view: no recargar si el usuario está editando activamente
+    if (editing) return;
 
     // modo view: leer desde description_html
     const extracted = extractFromHtml(descriptionHtml);
@@ -188,7 +192,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
       } catch (_) {}
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [issueId, mode, descriptionHtml]);
+  }, [issueId, mode, descriptionHtml, editing]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const update = (field: keyof SocialCaseData, value: string) => {
@@ -324,19 +328,26 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
             </div>
           </div>
 
-          {/* BOTONES */}
-          <div className="flex items-center justify-end gap-2 border-t-[0.5px] border-subtle pt-3">
-            {mode === "view" && !editing && (
-              <Button type="button" variant="secondary" size="sm" onClick={() => setEditing(true)}>
-                Editar
-              </Button>
-            )}
-            {isEditable && mode !== "create-no-save" && (
-              <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
-                {saved ? "Guardado" : "Guardar ficha"}
-              </Button>
-            )}
-          </div>
+          {/* BOTONES — solo en modo view */}
+          {mode === "view" && (
+            <div className="flex items-center justify-end gap-2 border-t-[0.5px] border-subtle pt-3">
+              {!editing && (
+                <Button type="button" variant="secondary" size="sm" onClick={() => { savedData.current = data; setEditing(true); }}>
+                  Editar
+                </Button>
+              )}
+              {editing && (
+                <>
+                  <Button type="button" variant="neutral-primary" size="sm" onClick={() => { setData(savedData.current); setEditing(false); }}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
+                    {saved ? "Guardado" : "Guardar ficha"}
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
 
         </div>
       )}

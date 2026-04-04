@@ -33,7 +33,7 @@ import type { TIssueOperations } from "../issue-detail";
 import { IssueParentDetail } from "../issue-detail/parent";
 import { IssueReaction } from "../issue-detail/reactions";
 import { IssueTitleInput } from "../title-input";
-import { SocialCaseForm, stripSocialCaseFromHtml, injectSocialCaseIntoHtml, extractFromHtml } from "@/components/issues/social-case-form";
+import { SocialCaseForm, stripSocialCaseFromHtml, injectSocialCaseIntoHtml, extractFromHtml, extractProfilePhotoFromHtml } from "@/components/issues/social-case-form";
 // services init
 const workItemVersionService = new WorkItemVersionService();
 
@@ -120,6 +120,17 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
           />
         )}
       </div>
+      {extractProfilePhotoFromHtml(issue.description_html ?? "") && (
+        <div className="flex justify-center py-2">
+          <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-custom-border-200 shadow-sm">
+            <img
+              src={extractProfilePhotoFromHtml(issue.description_html ?? "") ?? ""}
+              alt="Foto de perfil"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
+      )}
       <IssueTitleInput
         workspaceSlug={workspaceSlug}
         projectId={issue.project_id}

@@ -32,7 +32,7 @@ import { IssueDetailWidgets } from "../issue-detail-widgets";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
 import { IssueTitleInput } from "../title-input";
-import { SocialCaseForm, stripSocialCaseFromHtml, injectSocialCaseIntoHtml, extractFromHtml } from "@/components/issues/social-case-form";
+import { SocialCaseForm, stripSocialCaseFromHtml, injectSocialCaseIntoHtml, extractFromHtml, extractProfilePhotoFromHtml } from "@/components/issues/social-case-form";
 import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
@@ -121,6 +121,17 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           </div>
         </div>
 
+        {extractProfilePhotoFromHtml(issue.description_html ?? "") && (
+          <div className="flex justify-center py-2">
+            <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-custom-border-200 shadow-sm">
+              <img
+                src={extractProfilePhotoFromHtml(issue.description_html ?? "") ?? ""}
+                alt="Foto de perfil"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </div>
+        )}
         <IssueTitleInput
           workspaceSlug={workspaceSlug}
           projectId={issue.project_id}

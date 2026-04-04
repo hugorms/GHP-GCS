@@ -136,6 +136,8 @@ ATTRIBUTES = {
         "src",
         "alt",
         "title",
+        # social case profile photo identifier
+        "data-profile-photo",
     },
     "mention-component": {"id", "entity_identifier", "entity_name"},
     "th": {

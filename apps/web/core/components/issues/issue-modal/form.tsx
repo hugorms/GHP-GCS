@@ -49,7 +49,11 @@ import { DuplicateModalRoot } from "@/plane-web/components/de-dupe/duplicate-mod
 import { IssueTypeSelect, WorkItemTemplateSelect } from "@/plane-web/components/issues/issue-modal";
 import { WorkItemModalAdditionalProperties } from "@/plane-web/components/issues/issue-modal/modal-additional-properties";
 import { useDebouncedDuplicateIssues } from "@/plane-web/hooks/use-debounced-duplicate-issues";
-import { SocialCaseForm, PENDING_KEY, injectSocialCaseIntoHtml } from "@/components/issues/social-case-form";
+import { SocialCaseForm, PENDING_KEY, PROFILE_PHOTO_KEY, injectSocialCaseIntoHtml, injectProfilePhotoIntoHtml } from "@/components/issues/social-case-form";
+import { ProfilePhotoUpload } from "@/components/issues/profile-photo-upload";
+import { FileService } from "@/services/file.service";
+import { EFileAssetType } from "@plane/types";
+const _fileService = new FileService();
 
 export interface IssueFormProps {
   data?: Partial<TIssue>;
@@ -107,6 +111,10 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
   const [gptAssistantModal, setGptAssistantModal] = useState(false);
   const [isMoving, setIsMoving] = useState<boolean>(false);
   const [socialFormKey, setSocialFormKey] = useState(0);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(() => {
+    try { return localStorage.getItem(PROFILE_PHOTO_KEY); } catch { return null; }
+  });
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
 
   // refs
   const editorRef = useRef<EditorRefApi>(null);
@@ -116,6 +124,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
   // router
   const { workspaceSlug, projectId: routeProjectId } = useParams();
+  const activeProjectId = watch("project_id") ?? routeProjectId?.toString() ?? defaultProjectId;
 
   // store hooks
   const { getProjectById } = useProject();
@@ -219,6 +228,26 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workItemTemplateId]);
 
+  const handleProfilePhotoSelect = async (file: File) => {
+    if (!workspaceSlug || !activeProjectId) return;
+    setProfilePhotoUploading(true);
+    try {
+      const response = await _fileService.uploadProjectAsset(
+        workspaceSlug.toString(),
+        activeProjectId,
+        { entity_identifier: "", entity_type: EFileAssetType.ISSUE_DESCRIPTION },
+        file
+      );
+      const url = response.asset_url;
+      setProfilePhotoUrl(url);
+      try { localStorage.setItem(PROFILE_PHOTO_KEY, url); } catch (_) {}
+      onAssetUpload(response.asset_id);
+    } catch (_) {
+    } finally {
+      setProfilePhotoUploading(false);
+    }
+  };
+
   const handleFormSubmit = async (formData: Partial<TIssue>, is_draft_issue = false) => {
     // Inyectar datos de la ficha social en description_html antes de guardar
     let pendingKey: string | null = null;
@@ -231,10 +260,14 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
             formData.description_html ?? "<p></p>",
             socialData
           );
-          // Guardar la clave para borrarla SOLO si el issue se crea exitosamente
           pendingKey = PENDING_KEY;
         }
       } catch (_) {}
+      // Inyectar foto de perfil si existe
+      const photoUrl = profilePhotoUrl ?? (() => { try { return localStorage.getItem(PROFILE_PHOTO_KEY); } catch { return null; } })();
+      if (photoUrl) {
+        formData.description_html = injectProfilePhotoIntoHtml(formData.description_html ?? "<p></p>", photoUrl);
+      }
     }
 
     // Check if the editor is ready to discard
@@ -276,8 +309,10 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
         if (pendingKey) {
           try { localStorage.removeItem(pendingKey); } catch (_) {}
         }
-        // Resetear el SocialCaseForm para que quede en blanco en el próximo item
+        // Resetear el SocialCaseForm y foto de perfil para el próximo item
         setSocialFormKey((k) => k + 1);
+        setProfilePhotoUrl(null);
+        try { localStorage.removeItem(PROFILE_PHOTO_KEY); } catch (_) {}
         setGptAssistantModal(false);
         if (isCreateMoreToggleEnabled && workItemTemplateId) {
           handleTemplateChange({
@@ -466,6 +501,13 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                     setSelectedParentIssue={setSelectedParentIssue}
                   />
                 </div>
+              )}
+              {!data?.id && (
+                <ProfilePhotoUpload
+                  photoUrl={profilePhotoUrl}
+                  uploading={profilePhotoUploading}
+                  onFileSelected={handleProfilePhotoSelect}
+                />
               )}
               <div className="space-y-1">
                 <IssueTitleInput

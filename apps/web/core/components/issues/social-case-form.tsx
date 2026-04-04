@@ -48,6 +48,10 @@ const TIPOS = [
 // Clave única por pestaña para evitar colisiones entre tabs simultáneos
 const _tabId = Math.random().toString(36).slice(2);
 export const PENDING_KEY = `social_case_pending_${_tabId}`;
+export const PROFILE_PHOTO_KEY = `profile_photo_pending_${_tabId}`;
+
+// Regex para identificar la etiqueta de foto de perfil en el description_html
+const PHOTO_RE = /<img[^>]*data-profile-photo="1"[^>]*\/?>/;
 
 // Marcador de inicio y fin de la tabla de la ficha dentro del description_html
 const TABLE_START = '<table data-social-case="1">';
@@ -125,7 +129,22 @@ export const extractFromHtml = (html: string): SocialCaseData | null => {
  */
 /** Elimina la tabla de la ficha del description_html para pasarle al editor solo el texto limpio */
 export const stripSocialCaseFromHtml = (html: string): string =>
-  (html ?? "").replace(TABLE_RE, "");
+  (html ?? "").replace(TABLE_RE, "").replace(PHOTO_RE, "");
+
+/** Inyecta la foto de perfil como img oculta al inicio del description_html */
+export const injectProfilePhotoIntoHtml = (html: string, src: string): string => {
+  const tag = `<img data-profile-photo="1" src="${src}" style="display:none" alt="profile-photo" />`;
+  return tag + (html ?? "").replace(PHOTO_RE, "");
+};
+
+/** Extrae la URL de la foto de perfil del description_html, o null si no existe */
+export const extractProfilePhotoFromHtml = (html: string): string | null => {
+  if (!html) return null;
+  const match = html.match(PHOTO_RE);
+  if (!match) return null;
+  const srcMatch = match[0].match(/src="([^"]+)"/);
+  return srcMatch ? srcMatch[1] : null;
+};
 
 export const injectSocialCaseIntoHtml = (html: string, data: SocialCaseData): string => {
   const rows = FIELDS.map(

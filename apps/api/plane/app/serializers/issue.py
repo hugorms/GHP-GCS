@@ -857,6 +857,7 @@ class IssueListDetailSerializer(serializers.Serializer):
             "sub_issues_count": instance.sub_issues_count,
             "attachment_count": instance.attachment_count,
             "link_count": instance.link_count,
+            "description_html": instance.description_html,
         }
 
         # Handle expanded fields only when requested - using direct field access

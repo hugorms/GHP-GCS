@@ -33,7 +33,13 @@ import type { TIssueOperations } from "../issue-detail";
 import { IssueParentDetail } from "../issue-detail/parent";
 import { IssueReaction } from "../issue-detail/reactions";
 import { IssueTitleInput } from "../title-input";
-import { SocialCaseForm, stripSocialCaseFromHtml, injectSocialCaseIntoHtml, extractFromHtml, extractProfilePhotoFromHtml } from "@/components/issues/social-case-form";
+import {
+  SocialCaseForm,
+  stripSocialCaseFromHtml,
+  injectSocialCaseIntoHtml,
+  extractFromHtml,
+  extractProfilePhotoFromHtml,
+} from "@/components/issues/social-case-form";
 // services init
 const workItemVersionService = new WorkItemVersionService();
 
@@ -91,8 +97,8 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
   if (!issue || !issue.project_id) return <></>;
 
   const issueDescription =
-    issue.description_html !== undefined || issue.description_html !== null
-      ? issue.description_html != ""
+    typeof issue.description_html === "string"
+      ? issue.description_html !== ""
         ? stripSocialCaseFromHtml(issue.description_html)
         : "<p></p>"
       : undefined;
@@ -122,7 +128,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
       </div>
       {extractProfilePhotoFromHtml(issue.description_html ?? "") && (
         <div className="flex justify-center py-2">
-          <div className="h-32 w-24 rounded-md overflow-hidden border border-custom-border-200 shadow-sm">
+          <div className="border-custom-border-200 shadow-sm h-32 w-24 overflow-hidden rounded-md border">
             <img
               src={getFileURL(extractProfilePhotoFromHtml(issue.description_html ?? "") ?? "") ?? ""}
               alt="Foto de perfil"
@@ -148,7 +154,8 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         mode="view"
         descriptionHtml={issue.description_html ?? ""}
         onSave={async (newHtml) => {
-          await issueOperations.update(workspaceSlug, issue.project_id, issue.id, {
+          if (!workspaceSlug || !issue.project_id) return;
+          await issueOperations.update(workspaceSlug.toString(), issue.project_id, issue.id, {
             description_html: newHtml,
           });
         }}
@@ -200,17 +207,13 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
               isRestoreDisabled: disabled || isArchived,
             }}
             fetchHandlers={{
-              listDescriptionVersions: (issueId) =>
-                workItemVersionService.listDescriptionVersions(
-                  workspaceSlug,
-                  issue.project_id?.toString() ?? "",
-                  issueId
-                ),
-              retrieveDescriptionVersion: (issueId, versionId) =>
+              listDescriptionVersions: (id) =>
+                workItemVersionService.listDescriptionVersions(workspaceSlug, issue.project_id?.toString() ?? "", id),
+              retrieveDescriptionVersion: (id, versionId) =>
                 workItemVersionService.retrieveDescriptionVersion(
                   workspaceSlug,
                   issue.project_id?.toString() ?? "",
-                  issueId,
+                  id,
                   versionId
                 ),
             }}

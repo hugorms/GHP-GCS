@@ -32,7 +32,13 @@ import { IssueDetailWidgets } from "../issue-detail-widgets";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
 import { IssueTitleInput } from "../title-input";
-import { SocialCaseForm, stripSocialCaseFromHtml, injectSocialCaseIntoHtml, extractFromHtml, extractProfilePhotoFromHtml } from "@/components/issues/social-case-form";
+import {
+  SocialCaseForm,
+  stripSocialCaseFromHtml,
+  injectSocialCaseIntoHtml,
+  extractFromHtml,
+  extractProfilePhotoFromHtml,
+} from "@/components/issues/social-case-form";
 import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
@@ -123,7 +129,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
 
         {extractProfilePhotoFromHtml(issue.description_html ?? "") && (
           <div className="flex justify-center py-2">
-            <div className="h-32 w-24 rounded-md overflow-hidden border border-custom-border-200 shadow-sm">
+            <div className="border-custom-border-200 shadow-sm h-32 w-24 overflow-hidden rounded-md border">
               <img
                 src={getFileURL(extractProfilePhotoFromHtml(issue.description_html ?? "") ?? "") ?? ""}
                 alt="Foto de perfil"
@@ -149,7 +155,8 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           mode="view"
           descriptionHtml={issue.description_html ?? ""}
           onSave={async (newHtml) => {
-            await issueOperations.update(workspaceSlug, issue.project_id, issue.id, {
+            if (!workspaceSlug || !issue.project_id) return;
+            await issueOperations.update(workspaceSlug.toString(), issue.project_id, issue.id, {
               description_html: newHtml,
             });
           }}
@@ -202,10 +209,10 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
                 isRestoreDisabled: !isEditable || isArchived,
               }}
               fetchHandlers={{
-                listDescriptionVersions: (issueId) =>
-                  workItemVersionService.listDescriptionVersions(workspaceSlug, projectId, issueId),
-                retrieveDescriptionVersion: (issueId, versionId) =>
-                  workItemVersionService.retrieveDescriptionVersion(workspaceSlug, projectId, issueId, versionId),
+                listDescriptionVersions: (id) =>
+                  workItemVersionService.listDescriptionVersions(workspaceSlug, projectId, id),
+                retrieveDescriptionVersion: (id, versionId) =>
+                  workItemVersionService.retrieveDescriptionVersion(workspaceSlug, projectId, id, versionId),
               }}
               handleRestore={(descriptionHTML) => editorRef.current?.setEditorValue(descriptionHTML, true)}
               projectId={projectId}

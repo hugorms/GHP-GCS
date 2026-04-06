@@ -122,10 +122,10 @@ export const IssuesHeader = observer(function IssuesHeader() {
           />
         </div>
         <Button
-          variant="neutral-primary"
+          variant="secondary"
           size="lg"
           onClick={() => setShowReportModal(true)}
-          className="hidden md:flex items-center gap-1.5"
+          className="hidden items-center gap-1.5 md:flex"
         >
           <FileText className="h-3.5 w-3.5" />
           Reporte PDF

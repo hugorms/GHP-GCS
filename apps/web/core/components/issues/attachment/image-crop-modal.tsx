@@ -66,18 +66,14 @@ export const ImageCropModal: React.FC<Props> = ({ imageSrc, fileName, onConfirm,
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
     return new Promise((resolve) => {
-      canvas.toBlob(
-        (blob) => resolve(new File([blob!], fileName, { type: "image/jpeg" })),
-        "image/jpeg",
-        0.95
-      );
+      canvas.toBlob((blob) => resolve(new File([blob!], fileName, { type: "image/jpeg" })), "image/jpeg", 0.95);
     });
   };
 
   const hasCrop = crop.w > 2 && crop.h > 2;
 
   return (
-    <ModalCore isOpen onClose={onCancel} position={EModalPosition.CENTER} width={EModalWidth.XL}>
+    <ModalCore isOpen handleClose={onCancel} position={EModalPosition.CENTER} width={EModalWidth.XL}>
       <div className="p-5">
         {/* Header */}
         <h3 className="mb-4 text-h5-medium text-primary">Recortar imagen antes de adjuntar</h3>
@@ -85,8 +81,10 @@ export const ImageCropModal: React.FC<Props> = ({ imageSrc, fileName, onConfirm,
         {/* Image + drag overlay */}
         <div
           ref={containerRef}
-          className="relative select-none overflow-hidden rounded-md cursor-crosshair"
+          className="relative cursor-crosshair overflow-hidden rounded-md select-none"
           style={{ maxHeight: "420px" }}
+          role="application"
+          tabIndex={0}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -96,12 +94,12 @@ export const ImageCropModal: React.FC<Props> = ({ imageSrc, fileName, onConfirm,
             ref={imgRef}
             src={imageSrc}
             alt="preview"
-            className="w-full object-contain rounded-md"
+            className="w-full rounded-md object-contain"
             draggable={false}
           />
 
           {/* Dark overlay */}
-          <div className="pointer-events-none absolute inset-0 bg-black/40 rounded-md" />
+          <div className="pointer-events-none absolute inset-0 rounded-md bg-black/40" />
 
           {/* Crop selection rect */}
           {hasCrop && (
@@ -118,7 +116,7 @@ export const ImageCropModal: React.FC<Props> = ({ imageSrc, fileName, onConfirm,
           )}
         </div>
 
-        <p className="mt-2 text-xs text-tertiary">
+        <p className="text-xs mt-2 text-tertiary">
           {hasCrop
             ? "Area seleccionada. Confirma para adjuntar la region recortada."
             : "Arrastra sobre la imagen para seleccionar el area a recortar. Sin seleccion se adjunta la imagen completa."}

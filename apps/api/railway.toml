@@ -1,0 +1,18 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.api"
+
+[deploy]
+startCommand = "./bin/docker-entrypoint-api.sh"
+healthcheckPath = "/api/health/"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "worker"
+startCommand = "./bin/docker-entrypoint-worker.sh"
+
+[[services]]
+name = "beat-worker"
+startCommand = "./bin/docker-entrypoint-beat.sh"

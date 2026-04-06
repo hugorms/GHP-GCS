@@ -13,12 +13,9 @@ type SocialCaseData = {
   municipio: string;
   entidad: string;
   jornada: string;
-  tipoCaso: string;
-  fechaAtencion: string;
   referencia: string;
   accionTomada: string;
   resultado: string;
-  fechaResolucion: string;
 };
 
 type Props = {
@@ -35,15 +32,10 @@ type Props = {
 const EMPTY: SocialCaseData = {
   cedula: "", nombre: "", telefono: "", direccion: "",
   parroquia: "", municipio: "", entidad: "", jornada: "",
-  tipoCaso: "", fechaAtencion: "", referencia: "",
-  accionTomada: "", resultado: "", fechaResolucion: "",
+  referencia: "",
+  accionTomada: "", resultado: "",
 };
 
-const TIPOS = [
-  "Electrodomesticos", "Alimentacion", "Salud", "Vivienda",
-  "Documentacion", "Educacion", "Servicios Publicos",
-  "Pensiones y Beneficios", "Otro",
-];
 
 // Clave única por pestaña para evitar colisiones entre tabs simultáneos
 const _tabId = Math.random().toString(36).slice(2);
@@ -68,12 +60,9 @@ const FIELDS: { key: keyof SocialCaseData; label: string }[] = [
   { key: "municipio",     label: "Municipio"           },
   { key: "entidad",       label: "Estado"              },
   { key: "jornada",       label: "Jornada"             },
-  { key: "tipoCaso",      label: "Tipo de caso"        },
-  { key: "fechaAtencion", label: "Fecha atencion"      },
   { key: "referencia",    label: "Referencia"          },
   { key: "accionTomada",  label: "Accion tomada"       },
   { key: "resultado",     label: "Resultado"           },
-  { key: "fechaResolucion", label: "Fecha resolucion"  },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -323,22 +312,9 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
           {/* SECCION 2: DATOS DEL CASO */}
           <div>
             <span className={sectionHeadClass}>Datos del caso</span>
-            <div className="grid grid-cols-3 gap-x-6 gap-y-3">
-              <div>
-                <label className={labelClass}>Jornada</label>
-                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Nombre de la jornada" value={data.jornada} onChange={(e) => update("jornada", e.target.value)} />
-              </div>
-              <div>
-                <label className={labelClass}>Tipo de caso</label>
-                <select disabled={!isEditable} className={fc(isEditable)} value={data.tipoCaso} onChange={(e) => update("tipoCaso", e.target.value)}>
-                  <option value="">Seleccionar...</option>
-                  {TIPOS.map((t) => (<option key={t} value={t}>{t}</option>))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Fecha de atencion</label>
-                <input type="date" disabled={!isEditable} className={fc(isEditable)} value={data.fechaAtencion} onChange={(e) => update("fechaAtencion", e.target.value)} />
-              </div>
+            <div>
+              <label className={labelClass}>Jornada</label>
+              <input disabled={!isEditable} className={fc(isEditable)} placeholder="Nombre de la jornada" value={data.jornada} onChange={(e) => update("jornada", e.target.value)} />
             </div>
           </div>
 
@@ -354,15 +330,9 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
                 <label className={labelClass}>Accion tomada</label>
                 <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")} placeholder="Describe que se hizo para atender el caso..." value={data.accionTomada} onChange={(e) => update("accionTomada", e.target.value)} />
               </div>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                <div>
-                  <label className={labelClass}>Resultado / Beneficio otorgado</label>
-                  <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[52px] resize-y leading-relaxed")} placeholder="Que se otorgo o por que no se pudo resolver..." value={data.resultado} onChange={(e) => update("resultado", e.target.value)} />
-                </div>
-                <div>
-                  <label className={labelClass}>Fecha de resolucion</label>
-                  <input type="date" disabled={!isEditable} className={fc(isEditable)} value={data.fechaResolucion} onChange={(e) => update("fechaResolucion", e.target.value)} />
-                </div>
+              <div>
+                <label className={labelClass}>Resultado / Beneficio otorgado</label>
+                <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[52px] resize-y leading-relaxed")} placeholder="Que se otorgo o por que no se pudo resolver..." value={data.resultado} onChange={(e) => update("resultado", e.target.value)} />
               </div>
             </div>
           </div>

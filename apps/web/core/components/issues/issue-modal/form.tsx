@@ -124,7 +124,6 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
   // router
   const { workspaceSlug, projectId: routeProjectId } = useParams();
-  const activeProjectId = watch("project_id") ?? routeProjectId?.toString() ?? defaultProjectId;
 
   // store hooks
   const { getProjectById } = useProject();
@@ -164,6 +163,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     getValues,
     setValue,
   } = methods;
+  const activeProjectId = watch("project_id") ?? routeProjectId?.toString() ?? defaultProjectId;
 
   const projectId = watch("project_id");
   const activeAdditionalPropertiesLength = getActiveAdditionalPropertiesLength({

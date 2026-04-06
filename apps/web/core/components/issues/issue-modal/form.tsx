@@ -53,6 +53,7 @@ import { SocialCaseForm, PENDING_KEY, PROFILE_PHOTO_KEY, injectSocialCaseIntoHtm
 import { ProfilePhotoUpload } from "@/components/issues/profile-photo-upload";
 import { FileService } from "@/services/file.service";
 import { EFileAssetType } from "@plane/types";
+import { getFileURL } from "@plane/utils";
 const _fileService = new FileService();
 
 export interface IssueFormProps {
@@ -111,6 +112,11 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
   const [gptAssistantModal, setGptAssistantModal] = useState(false);
   const [isMoving, setIsMoving] = useState<boolean>(false);
   const [socialFormKey, setSocialFormKey] = useState(0);
+  // Archivo seleccionado (pendiente de subir al guardar)
+  const profilePhotoFileRef = useRef<File | null>(null);
+  // Preview local (blob URL) para mostrar inmediatamente sin subir al servidor
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
+  // URL del servidor (cuando la foto ya está guardada, viene del localStorage)
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(() => {
     try { return localStorage.getItem(PROFILE_PHOTO_KEY); } catch { return null; }
   });
@@ -228,8 +234,29 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workItemTemplateId]);
 
-  const handleProfilePhotoSelect = async (file: File) => {
-    if (!workspaceSlug || !activeProjectId) return;
+  // Revocar el blob URL al desmontar el componente (cierre del modal sin guardar)
+  useEffect(() => {
+    return () => {
+      if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Guarda el archivo y crea preview local inmediatamente. La subida real ocurre en handleFormSubmit.
+  const handleProfilePhotoSelect = (file: File) => {
+    profilePhotoFileRef.current = file;
+    // Revocar blob URL anterior para evitar memory leaks
+    if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview);
+    setProfilePhotoPreview(URL.createObjectURL(file));
+    // Limpiar URL del servidor guardada anteriormente (ya no es válida)
+    setProfilePhotoUrl(null);
+    try { localStorage.removeItem(PROFILE_PHOTO_KEY); } catch (_) {}
+  };
+
+  // Sube la foto al servidor. Se llama justo antes de guardar el formulario.
+  const uploadProfilePhoto = async (): Promise<string | null> => {
+    const file = profilePhotoFileRef.current;
+    if (!file || !workspaceSlug || !activeProjectId) return profilePhotoUrl;
     setProfilePhotoUploading(true);
     try {
       const response = await _fileService.uploadProjectAsset(
@@ -238,17 +265,42 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
         { entity_identifier: "", entity_type: EFileAssetType.ISSUE_DESCRIPTION },
         file
       );
-      const url = response.asset_url;
+      const url = getFileURL(response.asset_url) ?? response.asset_url;
       setProfilePhotoUrl(url);
+      profilePhotoFileRef.current = null;
       try { localStorage.setItem(PROFILE_PHOTO_KEY, url); } catch (_) {}
       onAssetUpload(response.asset_id);
-    } catch (_) {
+      return url;
+    } catch (err) {
+      console.error("Error subiendo foto de perfil:", err);
+      setToast({ type: TOAST_TYPE.ERROR, title: "Error", message: "No se pudo subir la foto. Intenta de nuevo." });
+      return null;
     } finally {
       setProfilePhotoUploading(false);
     }
   };
 
   const handleFormSubmit = async (formData: Partial<TIssue>, is_draft_issue = false) => {
+    // Check if the editor is ready to discard — ANTES de cualquier upload
+    if (!editorRef.current?.isEditorReadyToDiscard()) {
+      setToast({
+        type: TOAST_TYPE.ERROR,
+        title: t("error"),
+        message: t("editor_is_not_ready_to_discard_changes"),
+      });
+      return;
+    }
+
+    // check for required properties validation — ANTES de cualquier upload
+    if (
+      !handlePropertyValuesValidation({
+        projectId: projectId,
+        workspaceSlug: workspaceSlug?.toString(),
+        watch: watch,
+      })
+    )
+      return;
+
     // Inyectar datos de la ficha social en description_html antes de guardar
     let pendingKey: string | null = null;
     if (!data?.id) {
@@ -263,32 +315,12 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
           pendingKey = PENDING_KEY;
         }
       } catch (_) {}
-      // Inyectar foto de perfil si existe
-      const photoUrl = profilePhotoUrl ?? (() => { try { return localStorage.getItem(PROFILE_PHOTO_KEY); } catch { return null; } })();
+      // Subir foto al servidor solo después de pasar todas las validaciones
+      const photoUrl = await uploadProfilePhoto();
       if (photoUrl) {
         formData.description_html = injectProfilePhotoIntoHtml(formData.description_html ?? "<p></p>", photoUrl);
       }
     }
-
-    // Check if the editor is ready to discard
-    if (!editorRef.current?.isEditorReadyToDiscard()) {
-      setToast({
-        type: TOAST_TYPE.ERROR,
-        title: t("error"),
-        message: t("editor_is_not_ready_to_discard_changes"),
-      });
-      return;
-    }
-
-    // check for required properties validation
-    if (
-      !handlePropertyValuesValidation({
-        projectId: projectId,
-        workspaceSlug: workspaceSlug?.toString(),
-        watch: watch,
-      })
-    )
-      return;
 
     const submitData = !data?.id
       ? formData
@@ -312,6 +344,8 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
         // Resetear el SocialCaseForm y foto de perfil para el próximo item
         setSocialFormKey((k) => k + 1);
         setProfilePhotoUrl(null);
+        profilePhotoFileRef.current = null;
+        if (profilePhotoPreview) { URL.revokeObjectURL(profilePhotoPreview); setProfilePhotoPreview(null); }
         try { localStorage.removeItem(PROFILE_PHOTO_KEY); } catch (_) {}
         setGptAssistantModal(false);
         if (isCreateMoreToggleEnabled && workItemTemplateId) {
@@ -505,6 +539,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
               {!data?.id && (
                 <ProfilePhotoUpload
                   photoUrl={profilePhotoUrl}
+                  previewUrl={profilePhotoPreview}
                   uploading={profilePhotoUploading}
                   onFileSelected={handleProfilePhotoSelect}
                 />

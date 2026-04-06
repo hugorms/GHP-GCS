@@ -10,7 +10,7 @@ import { observer } from "mobx-react";
 import type { EditorRefApi } from "@plane/editor";
 import type { TNameDescriptionLoader } from "@plane/types";
 import { EFileAssetType, EIssueServiceType } from "@plane/types";
-import { getTextContent } from "@plane/utils";
+import { getTextContent, getFileURL } from "@plane/utils";
 // components
 import { DescriptionVersionsRoot } from "@/components/core/description-versions";
 import { DescriptionInput } from "@/components/editor/rich-text/description-input";
@@ -123,9 +123,9 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
 
         {extractProfilePhotoFromHtml(issue.description_html ?? "") && (
           <div className="flex justify-center py-2">
-            <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-custom-border-200 shadow-sm">
+            <div className="h-32 w-24 rounded-md overflow-hidden border border-custom-border-200 shadow-sm">
               <img
-                src={extractProfilePhotoFromHtml(issue.description_html ?? "") ?? ""}
+                src={getFileURL(extractProfilePhotoFromHtml(issue.description_html ?? "") ?? "") ?? ""}
                 alt="Foto de perfil"
                 className="h-full w-full object-cover"
               />

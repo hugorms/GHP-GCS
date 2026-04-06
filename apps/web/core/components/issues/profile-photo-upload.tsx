@@ -1,70 +1,93 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { cn } from "@plane/utils";
-import { ImageCropModal } from "@/components/issues/attachment/image-crop-modal";
 
 type Props = {
-  photoUrl: string | null;
+  photoUrl: string | null;        // URL servidor (cuando ya está guardado)
+  previewUrl?: string | null;     // blob URL local para preview inmediato
   uploading?: boolean;
   onFileSelected: (file: File) => void;
 };
 
-export const ProfilePhotoUpload = ({ photoUrl, uploading = false, onFileSelected }: Props) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [cropSrc, setCropSrc] = useState<string | null>(null);
-  const [cropFileName, setCropFileName] = useState<string>("");
+export const ProfilePhotoUpload = ({ photoUrl, previewUrl, uploading = false, onFileSelected }: Props) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+
+  useEffect(() => () => { stopStream(); }, []);
+
+  useEffect(() => {
+    if (showCamera && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [showCamera]);
+
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
+
+  const handleBoxClick = async () => {
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        streamRef.current = stream;
+        setShowCamera(true);
+        return;
+      } catch { /* sin permiso → galería */ }
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleCapture = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      stopStream();
+      setShowCamera(false);
+      onFileSelected(new File([blob], "captura.jpg", { type: "image/jpeg" }));
+    }, "image/jpeg", 0.9);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setCropSrc(ev.target?.result as string);
-      setCropFileName(file.name);
-    };
-    reader.readAsDataURL(file);
-    // reset input so same file can be re-selected
+    onFileSelected(file);
     e.target.value = "";
   };
+
+  const displaySrc = previewUrl ?? photoUrl;
 
   return (
     <>
       <div className="flex justify-center pb-3">
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
-          className="relative group focus:outline-none"
-          title="Agregar foto de perfil"
+          onClick={handleBoxClick}
+          className={cn(
+            "relative h-28 w-24 rounded-md overflow-hidden transition-colors focus:outline-none",
+            "bg-surface-2 flex items-center justify-center",
+            displaySrc
+              ? "border border-solid border-custom-border-200 hover:border-custom-primary-100"
+              : "border border-dashed border-custom-border-200 hover:border-custom-primary-100"
+          )}
+          title="Tomar foto"
         >
-          {/* Circle avatar */}
-          <div className={cn(
-            "h-20 w-20 rounded-full overflow-hidden border-2 border-dashed border-custom-border-200",
-            "bg-surface-2 flex items-center justify-center transition-colors",
-            "group-hover:border-custom-primary-100",
-            photoUrl ? "border-solid border-custom-border-300" : ""
-          )}>
-            {photoUrl ? (
-              <img src={photoUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-custom-text-400 group-hover:text-custom-primary-100 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
-              </svg>
-            )}
-          </div>
-
-          {/* Overlay on hover */}
-          {photoUrl && (
-            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
+          {displaySrc ? (
+            <img src={displaySrc} alt="Foto de perfil" className="h-full w-full object-cover" />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-custom-text-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
           )}
 
-          {/* Loading spinner */}
           {uploading && (
-            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
               <svg className="animate-spin h-6 w-6 text-white" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -72,28 +95,36 @@ export const ProfilePhotoUpload = ({ photoUrl, uploading = false, onFileSelected
             </div>
           )}
         </button>
-
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileChange}
-        />
       </div>
 
-      {/* Crop modal */}
-      {cropSrc && (
-        <ImageCropModal
-          imageSrc={cropSrc}
-          fileName={cropFileName}
-          onConfirm={(croppedFile) => {
-            setCropSrc(null);
-            onFileSelected(croppedFile);
-          }}
-          onCancel={() => setCropSrc(null)}
-        />
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
+      {/* Modal cámara */}
+      {showCamera && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="rounded-xl bg-custom-background-100 border border-custom-border-200 shadow-xl overflow-hidden w-full max-w-sm mx-4">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-custom-border-200">
+              <span className="text-sm font-medium text-custom-text-100">Tomar foto</span>
+              <button
+                type="button"
+                onClick={() => { stopStream(); setShowCamera(false); }}
+                className="text-custom-text-400 hover:text-custom-text-100 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-[3/4] object-cover bg-black" />
+            <div className="p-4 flex justify-center">
+              <button
+                type="button"
+                onClick={handleCapture}
+                className="h-14 w-14 rounded-full bg-white border-4 border-custom-border-300 hover:scale-105 shadow transition-transform"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

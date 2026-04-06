@@ -4,10 +4,11 @@
  * See the LICENSE file for details.
  */
 
+import { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // icons
-import { Circle } from "lucide-react";
+import { Circle, FileText } from "lucide-react";
 // plane imports
 import {
   EUserPermissions,
@@ -25,6 +26,7 @@ import { Breadcrumbs, Header } from "@plane/ui";
 // components
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { CountChip } from "@/components/common/count-chip";
+import { SocialCaseReportModal } from "@/components/issues/social-case-report-modal";
 // constants
 import { HeaderFilters } from "@/components/issues/filters";
 // helpers
@@ -57,6 +59,8 @@ export const IssuesHeader = observer(function IssuesHeader() {
 
   const SPACE_APP_URL = (SPACE_BASE_URL.trim() === "" ? window.location.origin : SPACE_BASE_URL) + SPACE_BASE_PATH;
   const publishedURL = `${SPACE_APP_URL}/issues/${currentProjectDetails?.anchor}`;
+
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const issuesCount = getGroupIssueCount(undefined, undefined, false);
   const canUserCreateIssue = allowPermissions(
@@ -107,6 +111,7 @@ export const IssuesHeader = observer(function IssuesHeader() {
           <></>
         )}
       </Header.LeftItem>
+      {showReportModal && <SocialCaseReportModal onClose={() => setShowReportModal(false)} />}
       <Header.RightItem>
         <div className="hidden gap-2 md:flex">
           <HeaderFilters
@@ -116,6 +121,15 @@ export const IssuesHeader = observer(function IssuesHeader() {
             canUserCreateIssue={canUserCreateIssue}
           />
         </div>
+        <Button
+          variant="neutral-primary"
+          size="lg"
+          onClick={() => setShowReportModal(true)}
+          className="hidden md:flex items-center gap-1.5"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Reporte PDF
+        </Button>
         {canUserCreateIssue && (
           <Button
             variant="primary"

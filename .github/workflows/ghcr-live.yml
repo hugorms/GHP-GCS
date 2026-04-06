@@ -1,7 +1,11 @@
 # Construye y publica la imagen de apps/live en GitHub Container Registry.
 # Imagen: ghcr.io/bibliotecaven/ghp-gcs-live
 #
-# Mismos requisitos de token que ghcr-api.yml (write:packages en GHCR_TOKEN o GITHUB_TOKEN).
+# apps/live no usa VITE en build: servidor Node (process.env en runtime).
+# En Dokploy/deploy: API_BASE_URL, LIVE_SERVER_SECRET_KEY, REDIS_*, PORT, etc.
+# Ver apps/live/.env.example y apps/live/src/env.ts
+#
+# Mismos requisitos de token que ghcr-api.yml (write:packages).
 
 name: GHCR — Live
 

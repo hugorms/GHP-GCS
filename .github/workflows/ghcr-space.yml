@@ -1,23 +1,12 @@
-# Construye y publica la imagen de apps/admin en GitHub Container Registry.
-# Imagen: ghcr.io/bibliotecaven/ghp-gcs-admin
+# Construye y publica la imagen de apps/space en GitHub Container Registry.
+# Imagen: ghcr.io/bibliotecaven/ghp-gcs-space
 #
-# --- Variables VITE compartidas (definir una vez en el repo; usan web/admin/space) ---
-#   VITE_API_BASE_URL          URL pública del API (ej. https://api.tudominio.com)
-#   VITE_API_BASE_PATH         Ruta del API (default en Dockerfile: /api)
-#   VITE_WEB_BASE_URL          URL pública de la app web
-#   VITE_WEB_BASE_PATH         Ruta base de web (default "")
-#   VITE_ADMIN_BASE_URL        URL pública del admin (nginx + /god-mode)
-#   VITE_ADMIN_BASE_PATH       /god-mode
-#   VITE_SPACE_BASE_URL        URL pública de space
-#   VITE_SPACE_BASE_PATH       /spaces
-#   VITE_LIVE_BASE_URL         URL pública de live
-#   VITE_LIVE_BASE_PATH        /live
-#   VITE_WEBSITE_URL           (opcional) marca sitio; default plane.so en Dockerfile
-#   VITE_SUPPORT_EMAIL         (opcional) email soporte; default en Dockerfile
+# Variables: mismo bloque "Variables VITE compartidas" que ghcr-admin.yml
+# (apps/space/Dockerfile.space acepta los mismos ARG que admin).
 #
 # Mismos requisitos de token que ghcr-api.yml (write:packages).
 
-name: GHCR — Admin
+name: GHCR — Space
 
 on:
   push:
@@ -25,25 +14,25 @@ on:
       - preview
       - main
     paths:
-      - "apps/admin/**"
+      - "apps/space/**"
       - "packages/**"
       - "pnpm-lock.yaml"
       - "package.json"
       - "turbo.json"
       - "pnpm-workspace.yaml"
-      - ".github/workflows/ghcr-admin.yml"
+      - ".github/workflows/ghcr-space.yml"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: bibliotecaven/ghp-gcs-admin
+  IMAGE_NAME: bibliotecaven/ghp-gcs-space
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: ghcr-admin-${{ github.ref }}
+  group: ghcr-space-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -77,7 +66,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./apps/admin/Dockerfile.admin
+          file: ./apps/space/Dockerfile.space
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

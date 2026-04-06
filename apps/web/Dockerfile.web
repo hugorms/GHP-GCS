@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1.7
+# bump: CI trigger rebuild
 FROM node:22-alpine AS base
 
 # Setup pnpm package manager with corepack and configure global bin directory for caching

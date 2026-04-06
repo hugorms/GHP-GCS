@@ -1,7 +1,12 @@
 # Construye y publica la imagen de apps/web en GitHub Container Registry.
 # Imagen: ghcr.io/bibliotecaven/ghp-gcs-web
 #
-# Mismos requisitos de token que ghcr-api.yml (write:packages en GHCR_TOKEN o GITHUB_TOKEN).
+# Variables del repositorio (Settings → Secrets and variables → Actions → Variables):
+#   Compartidas: ver comentario en ghcr-admin.yml (bloque "Variables VITE compartidas").
+#   Esta imagen usa el subconjunto que acepta apps/web/Dockerfile.web (sin API_BASE_PATH,
+#   VITE_WEB_BASE_PATH, VITE_WEBSITE_URL, VITE_SUPPORT_EMAIL).
+#
+# Mismos requisitos de token que ghcr-api.yml (write:packages).
 
 name: GHCR — Web
 
@@ -67,5 +72,14 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+            VITE_WEB_BASE_URL=${{ vars.VITE_WEB_BASE_URL }}
+            VITE_ADMIN_BASE_URL=${{ vars.VITE_ADMIN_BASE_URL }}
+            VITE_ADMIN_BASE_PATH=${{ vars.VITE_ADMIN_BASE_PATH || '/god-mode' }}
+            VITE_SPACE_BASE_URL=${{ vars.VITE_SPACE_BASE_URL }}
+            VITE_SPACE_BASE_PATH=${{ vars.VITE_SPACE_BASE_PATH || '/spaces' }}
+            VITE_LIVE_BASE_URL=${{ vars.VITE_LIVE_BASE_URL }}
+            VITE_LIVE_BASE_PATH=${{ vars.VITE_LIVE_BASE_PATH || '/live' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

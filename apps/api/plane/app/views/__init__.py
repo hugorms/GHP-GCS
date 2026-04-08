@@ -130,6 +130,8 @@ from .issue.base import (
 
 from .issue.activity import IssueActivityEndpoint
 
+from .issue.social_case import SocialCaseReportEndpoint
+
 from .issue.archive import IssueArchiveViewSet, BulkArchiveIssuesEndpoint
 
 from .issue.attachment import (

@@ -1,15 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { FileDown } from "lucide-react";
 import { observer } from "mobx-react";
 import { pdf } from "@react-pdf/renderer";
 import { Button } from "@plane/propel/button";
-import { EIssuesStoreType } from "@plane/types";
 import { Checkbox, EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
-import { useIssues } from "@/hooks/store/use-issues";
+import { getBase64Image, getFileURL } from "@plane/utils";
 import { useMember } from "@/hooks/store/use-member";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
+import { APIService } from "@/services/api.service";
+import { API_BASE_URL } from "@plane/constants";
 import { extractFromHtml, extractProfilePhotoFromHtml } from "@/components/issues/social-case-form";
 import {
   SocialCaseReportPDF,
@@ -48,6 +49,19 @@ function formatDate(d: Date | null): string {
   return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+// Servicio dedicado para el endpoint de casos sociales
+class SocialCaseService extends APIService {
+  constructor() {
+    super(API_BASE_URL);
+  }
+  async getSocialCases(workspaceSlug: string, projectId: string): Promise<any[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/social-cases/`)
+      .then((res) => res?.data ?? [])
+      .catch(() => []);
+  }
+}
+const socialCaseService = new SocialCaseService();
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -55,10 +69,14 @@ type Props = {
 };
 
 export const SocialCaseReportModal = observer(function SocialCaseReportModal({ onClose }: Props) {
-  const { projectId } = useParams();
-  const { currentProjectDetails } = useProject();
+  const { workspaceSlug, projectId } = useParams();
+
+  // Fix: usar getProjectById con el projectId del URL en vez de currentProjectDetails
+  // que depende del router store global y puede estar cacheado de otro proyecto.
+  const { getProjectById } = useProject();
+  const projectDetails = getProjectById(projectId?.toString() ?? "");
+
   const { getProjectStates } = useProjectState();
-  const { issueMap } = useIssues(EIssuesStoreType.PROJECT);
   const memberRoot = useMember();
 
   const [preset, setPreset] = useState<Preset>("month");
@@ -69,6 +87,23 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const [includePhotos, setIncludePhotos] = useState(true);
   const [includeDetails, setIncludeDetails] = useState(false);
   const [openAfter, setOpenAfter] = useState(true);
+
+  // Fix: los issues del issueMap NO traen description_html (solo el detalle lo carga).
+  // Fetacheamos directamente del API para tener el HTML completo con la ficha social.
+  const [allIssues, setAllIssues] = useState<any[]>([]);
+  const [loadingIssues, setLoadingIssues] = useState(true);
+
+  useEffect(() => {
+    const ws = workspaceSlug?.toString();
+    const pid = projectId?.toString();
+    if (!ws || !pid) return;
+
+    setLoadingIssues(true);
+    socialCaseService
+      .getSocialCases(ws, pid)
+      .then((list) => setAllIssues(list))
+      .finally(() => setLoadingIssues(false));
+  }, [workspaceSlug, projectId]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -100,17 +135,14 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     return { fromDate: null, toDate: null };
   }, [preset, customFrom, customTo]);
 
-  // Parseo único: filtra, extrae campos y calcula stats en un solo recorrido
   const { rows, byState, byJornada, conResultado } = useMemo(() => {
     const parsedRows: ParsedIssueRow[] = [];
     const parsedByState: Record<string, number> = {};
     const parsedByJornada: Record<string, number> = {};
     let parsedConResultado = 0;
 
-    for (const issue of Object.values(issueMap)) {
-      // Solo issues de este proyecto con ficha social
-      if (issue.project_id?.toString() !== projectId?.toString()) continue;
-      if (!issue.description_html?.includes('data-social-case="1"')) continue;
+    for (const issue of allIssues) {
+      if (!issue) continue;
 
       // Filtro de fechas
       if (fromDate || toDate) {
@@ -120,7 +152,6 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         if (toDate && created > toDate) continue;
       }
 
-      // Parseo único del HTML
       const d = extractFromHtml(issue.description_html ?? "");
       const photoUrl = extractProfilePhotoFromHtml(issue.description_html ?? "");
       const stateName = stateNames[issue.state_id ?? ""] ?? "Sin estado";
@@ -157,7 +188,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     }
 
     return { rows: parsedRows, byState: parsedByState, byJornada: parsedByJornada, conResultado: parsedConResultado };
-  }, [issueMap, projectId, stateNames, fromDate, toDate, memberRoot]);
+  }, [allIssues, stateNames, fromDate, toDate, memberRoot]);
 
   const dateRangeLabel = useMemo(() => {
     if (!fromDate && !toDate) return "Todos los registros";
@@ -173,10 +204,26 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     setGenerating(true);
     try {
       const generatedAtLabel = new Date().toLocaleDateString("es-VE");
+      const projectName = projectDetails?.name ?? "Proyecto";
+
+      const resolvedRows: ParsedIssueRow[] = await Promise.all(
+        rows.map(async (row) => {
+          if (!includePhotos || !row.photoUrl) return row;
+          try {
+            const raw = getFileURL(row.photoUrl) ?? row.photoUrl;
+            const fullUrl = raw.startsWith("http") ? raw : `${window.location.origin}${raw}`;
+            const base64 = await getBase64Image(fullUrl);
+            return { ...row, photoUrl: base64 };
+          } catch {
+            return { ...row, photoUrl: null };
+          }
+        })
+      );
+
       const blob = await pdf(
         <SocialCaseReportPDF
-          rows={rows}
-          projectName={currentProjectDetails?.name ?? "Proyecto"}
+          rows={resolvedRows}
+          projectName={projectName}
           dateRange={dateRangeLabel}
           byState={byState}
           byJornada={byJornada}
@@ -188,13 +235,20 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           includeDetails={includeDetails}
         />
       ).toBlob();
+
       const url = URL.createObjectURL(blob);
       if (openAfter) {
         window.open(url, "_blank", "noopener,noreferrer");
       } else {
         const a = document.createElement("a");
         a.href = url;
-        a.download = `reporte-casos-${new Date().toISOString().split("T")[0]}.pdf`;
+        const safeName = projectName
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+        a.download = `reporte-${safeName}-${new Date().toISOString().split("T")[0]}.pdf`;
         a.click();
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
@@ -218,7 +272,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       <div className="space-y-5 p-6">
         <div className="space-y-1">
           <h3 className="text-18 font-medium text-secondary">Reporte de Casos Sociales</h3>
-          <p className="text-12 text-tertiary">{currentProjectDetails?.name}</p>
+          <p className="text-12 text-tertiary">{projectDetails?.name}</p>
         </div>
 
         <div className="space-y-2">
@@ -294,16 +348,20 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
 
         <div className="rounded-lg border border-subtle bg-surface-2 p-4">
           <p className="text-12 text-tertiary">{dateRangeLabel}</p>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-md border border-subtle bg-transparent p-3">
-              <p className="text-24 font-semibold text-secondary">{rows.length}</p>
-              <p className="text-12 text-tertiary">Total de fichas</p>
+          {loadingIssues ? (
+            <p className="mt-3 text-12 text-tertiary">Cargando casos...</p>
+          ) : (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="rounded-md border border-subtle bg-transparent p-3">
+                <p className="text-24 font-semibold text-secondary">{rows.length}</p>
+                <p className="text-12 text-tertiary">Total de fichas</p>
+              </div>
+              <div className="rounded-md border border-subtle bg-transparent p-3">
+                <p className="text-24 font-semibold text-secondary">{conResultado}</p>
+                <p className="text-12 text-tertiary">Con resultado</p>
+              </div>
             </div>
-            <div className="rounded-md border border-subtle bg-transparent p-3">
-              <p className="text-24 font-semibold text-secondary">{conResultado}</p>
-              <p className="text-12 text-tertiary">Con resultado</p>
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="space-y-3 rounded-lg border border-subtle bg-surface-2 p-4">
@@ -350,11 +408,11 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
             type="button"
             variant="primary"
             onClick={handleDownload}
-            disabled={rows.length === 0 || generating}
-            loading={generating}
+            disabled={rows.length === 0 || generating || loadingIssues}
+            loading={generating || loadingIssues}
           >
-            {!generating && <FileDown className="mr-2 size-4" />}
-            {openAfter ? "Generar y abrir PDF" : `Descargar PDF (${rows.length})`}
+            {!generating && !loadingIssues && <FileDown className="mr-2 size-4" />}
+            {loadingIssues ? "Cargando casos..." : openAfter ? "Generar y abrir PDF" : `Descargar PDF (${rows.length})`}
           </Button>
         </div>
       </div>

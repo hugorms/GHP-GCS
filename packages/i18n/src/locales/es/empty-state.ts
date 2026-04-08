@@ -183,9 +183,9 @@ export default {
       cta_primary: "Agregar sistema de estimación",
     },
     labels: {
-      title: "Aún no hay etiquetas",
-      description: "Crea etiquetas personalizadas para categorizar y gestionar efectivamente tus elementos de trabajo.",
-      cta_primary: "Crea tu primera etiqueta",
+      title: "Aún no hay tipos de caso",
+      description: "Crea tipos de caso para categorizar y gestionar efectivamente tus casos sociales.",
+      cta_primary: "Crea tu primer tipo de caso",
     },
     exports: {
       title: "Aún no hay exportaciones",

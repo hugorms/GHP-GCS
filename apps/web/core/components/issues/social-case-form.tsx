@@ -4,7 +4,8 @@ import { cn } from "@plane/utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type SocialCaseData = {
+export type SocialCaseData = {
+  numeroCaso: string;
   cedula: string;
   nombre: string;
   telefono: string;
@@ -25,22 +26,29 @@ type Props = {
   mode: "create-no-save" | "view";
   descriptionHtml?: string;
   onSave?: (newDescriptionHtml: string) => Promise<void>;
+  /** Callback llamado en tiempo real con los datos del formulario (modo create-no-save) */
+  onDataChange?: (data: SocialCaseData) => void;
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const EMPTY: SocialCaseData = {
-  cedula: "", nombre: "", telefono: "", direccion: "",
-  parroquia: "", municipio: "", entidad: "", jornada: "",
+  numeroCaso: "",
+  cedula: "",
+  nombre: "",
+  telefono: "",
+  direccion: "",
+  parroquia: "",
+  municipio: "",
+  entidad: "",
+  jornada: "",
   referencia: "",
-  accionTomada: "", resultado: "",
+  accionTomada: "",
+  resultado: "",
 };
 
-
-// Clave única por pestaña para evitar colisiones entre tabs simultáneos
-const _tabId = Math.random().toString(36).slice(2);
-export const PENDING_KEY = `social_case_pending_${_tabId}`;
-export const PROFILE_PHOTO_KEY = `profile_photo_pending_${_tabId}`;
+export const PENDING_KEY = "social_case_pending";
+export const PROFILE_PHOTO_KEY = "profile_photo_pending";
 
 // Regex para identificar la etiqueta de foto de perfil en el description_html
 const PHOTO_RE = /<img[^>]*data-profile-photo="1"[^>]*\/?>/;
@@ -52,29 +60,25 @@ const TABLE_RE = /<table data-social-case="1">[\s\S]*?<\/table>/;
 
 // Campos con sus etiquetas legibles para construir la tabla
 const FIELDS: { key: keyof SocialCaseData; label: string }[] = [
-  { key: "cedula",        label: "Cedula"              },
-  { key: "nombre",        label: "Nombre"              },
-  { key: "telefono",      label: "Telefono"            },
-  { key: "direccion",     label: "Direccion"           },
-  { key: "parroquia",     label: "Parroquia"           },
-  { key: "municipio",     label: "Municipio"           },
-  { key: "entidad",       label: "Estado"              },
-  { key: "jornada",       label: "Jornada"             },
-  { key: "referencia",    label: "Referencia"          },
-  { key: "accionTomada",  label: "Accion tomada"       },
-  { key: "resultado",     label: "Resultado"           },
+  { key: "numeroCaso", label: "N\u00famero de caso" },
+  { key: "cedula", label: "Cedula" },
+  { key: "nombre", label: "Nombre" },
+  { key: "telefono", label: "Telefono" },
+  { key: "direccion", label: "Direccion" },
+  { key: "parroquia", label: "Parroquia" },
+  { key: "municipio", label: "Municipio" },
+  { key: "entidad", label: "Estado" },
+  { key: "jornada", label: "Jornada" },
+  { key: "referencia", label: "Referencia" },
+  { key: "accionTomada", label: "Accion tomada" },
+  { key: "resultado", label: "Resultado" },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Escapa caracteres HTML especiales para evitar XSS al inyectar valores en la tabla */
 const escapeHtml = (str: string): string =>
-  str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 /** Lee la tabla del description_html y reconstruye el objeto SocialCaseData.
  *  Estrategia dual:
@@ -109,7 +113,9 @@ export const extractFromHtml = (html: string): SocialCaseData | null => {
       if (key && key in result) result[key] = cells[1].textContent ?? "";
     });
     return result;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 };
 
 /** Construye la tabla HTML con los datos y la inyecta al inicio del description_html.
@@ -158,12 +164,13 @@ const sectionHeadClass = "block text-xs text-custom-text-300 uppercase tracking-
 const labelClass = "block text-xs text-custom-text-300 mb-0.5";
 
 const fieldBase = "w-full rounded-md border-[0.5px] text-13 px-3 py-1.5 transition-colors";
-const fieldEditable = "border-subtle bg-surface-2 text-primary placeholder:text-placeholder focus:border-strong focus:outline-none";
+const fieldEditable =
+  "border-subtle bg-surface-2 text-primary placeholder:text-placeholder focus:border-strong focus:outline-none";
 const fieldReadonly = "border-subtle bg-surface-1 text-primary cursor-default outline-none opacity-75";
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: Props) => {
+export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, onDataChange }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -172,7 +179,9 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
   const latestDescHtml = useRef(descriptionHtml);
-  useEffect(() => { latestDescHtml.current = descriptionHtml; });
+  useEffect(() => {
+    latestDescHtml.current = descriptionHtml;
+  });
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -207,17 +216,20 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
           const parsed: SocialCaseData = JSON.parse(pending);
           setData(parsed);
           const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, parsed);
-          onSave(newHtml).then(() => {
-            localStorage.removeItem(PENDING_KEY);
-            // Limpiar el guard de sesión una vez confirmado — ya está en DB
-            if (migratedKey) sessionStorage.removeItem(migratedKey);
-          }).catch(() => {
-            if (migratedKey) sessionStorage.removeItem(migratedKey);
-          });
+          onSave(newHtml)
+            .then(() => {
+              localStorage.removeItem(PENDING_KEY);
+              // Limpiar el guard de sesión una vez confirmado — ya está en DB
+              if (migratedKey) sessionStorage.removeItem(migratedKey);
+              return undefined;
+            })
+            .catch(() => {
+              if (migratedKey) sessionStorage.removeItem(migratedKey);
+            });
         }
       } catch (_) {}
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issueId, mode, descriptionHtml, editing]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -225,7 +237,10 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
     setData((prev) => {
       const next = { ...prev, [field]: value };
       if (mode === "create-no-save") {
-        try { localStorage.setItem(PENDING_KEY, JSON.stringify(next)); } catch (_) {}
+        try {
+          localStorage.setItem(PENDING_KEY, JSON.stringify(next));
+        } catch (_) {}
+        onDataChange?.(next);
       }
       return next;
     });
@@ -254,57 +269,135 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full">
-
       {/* Cabecera */}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between py-1 text-left group"
-      >
-        <span className="text-sm font-normal text-custom-text-200 group-hover:text-custom-text-100 transition-colors">
-          Ficha de Caso Social
-        </span>
-        <span className="text-xs text-custom-text-400 group-hover:text-custom-text-300 transition-colors">
-          {open ? "Ocultar" : "Mostrar"}
-        </span>
-      </button>
+      <div className="flex items-center justify-between gap-3 py-1">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="group flex min-w-0 items-center gap-2 text-left"
+        >
+          <span className="text-sm font-normal text-custom-text-200 group-hover:text-custom-text-100 whitespace-nowrap transition-colors">
+            Datos del ciudadano
+          </span>
+          <span className="text-xs text-custom-text-400 group-hover:text-custom-text-300 whitespace-nowrap transition-colors">
+            {open ? "Ocultar" : "Mostrar"}
+          </span>
+        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="text-xs text-custom-text-400 whitespace-nowrap">N° Caso</span>
+          <input
+            disabled={!isEditable}
+            type="text"
+            placeholder="000"
+            value={data.numeroCaso}
+            onChange={(e) => update("numeroCaso", e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className={cn(
+              "text-xs w-20 rounded-md border-[0.5px] px-2 py-1 text-center transition-colors",
+              isEditable
+                ? "border-subtle bg-surface-2 text-primary placeholder:text-placeholder focus:border-strong focus:outline-none"
+                : "cursor-default border-subtle bg-surface-1 text-primary opacity-75 outline-none"
+            )}
+          />
+        </div>
+      </div>
 
       {open && (
         <div className="mt-3 space-y-5">
-
-          {/* SECCION 1: DATOS DEL CIUDADANO */}
           <div>
-            <span className={sectionHeadClass}>Datos del ciudadano</span>
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <div>
-                <label className={labelClass}>Cedula de identidad</label>
-                <input disabled={!isEditable} className={fc(isEditable)} placeholder="V-00.000.000" value={data.cedula} onChange={(e) => update("cedula", e.target.value)} />
+                <label htmlFor="sc-cedula" className={labelClass}>
+                  Cedula de identidad
+                </label>
+                <input
+                  id="sc-cedula"
+                  disabled={!isEditable}
+                  className={fc(isEditable)}
+                  placeholder="V-00.000.000"
+                  value={data.cedula}
+                  onChange={(e) => update("cedula", e.target.value)}
+                />
               </div>
               <div>
-                <label className={labelClass}>Nombre completo</label>
-                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Nombre y apellido" value={data.nombre} onChange={(e) => update("nombre", e.target.value)} />
+                <label htmlFor="sc-nombre" className={labelClass}>
+                  Nombre completo
+                </label>
+                <input
+                  id="sc-nombre"
+                  disabled={!isEditable}
+                  className={fc(isEditable)}
+                  placeholder="Nombre y apellido"
+                  value={data.nombre}
+                  onChange={(e) => update("nombre", e.target.value)}
+                />
               </div>
               <div>
-                <label className={labelClass}>Telefono</label>
-                <input disabled={!isEditable} className={fc(isEditable)} placeholder="0424-000.00.00" value={data.telefono} onChange={(e) => update("telefono", e.target.value)} />
+                <label htmlFor="sc-telefono" className={labelClass}>
+                  Telefono
+                </label>
+                <input
+                  id="sc-telefono"
+                  disabled={!isEditable}
+                  className={fc(isEditable)}
+                  placeholder="0424-000.00.00"
+                  value={data.telefono}
+                  onChange={(e) => update("telefono", e.target.value)}
+                />
               </div>
               <div>
-                <label className={labelClass}>Direccion</label>
-                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Barrio, sector, calle..." value={data.direccion} onChange={(e) => update("direccion", e.target.value)} />
+                <label htmlFor="sc-direccion" className={labelClass}>
+                  Direccion
+                </label>
+                <input
+                  id="sc-direccion"
+                  disabled={!isEditable}
+                  className={fc(isEditable)}
+                  placeholder="Barrio, sector, calle..."
+                  value={data.direccion}
+                  onChange={(e) => update("direccion", e.target.value)}
+                />
               </div>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-x-6 gap-y-3">
               <div>
-                <label className={labelClass}>Parroquia</label>
-                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Parroquia" value={data.parroquia} onChange={(e) => update("parroquia", e.target.value)} />
+                <label htmlFor="sc-parroquia" className={labelClass}>
+                  Parroquia
+                </label>
+                <input
+                  id="sc-parroquia"
+                  disabled={!isEditable}
+                  className={fc(isEditable)}
+                  placeholder="Parroquia"
+                  value={data.parroquia}
+                  onChange={(e) => update("parroquia", e.target.value)}
+                />
               </div>
               <div>
-                <label className={labelClass}>Municipio</label>
-                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Municipio" value={data.municipio} onChange={(e) => update("municipio", e.target.value)} />
+                <label htmlFor="sc-municipio" className={labelClass}>
+                  Municipio
+                </label>
+                <input
+                  id="sc-municipio"
+                  disabled={!isEditable}
+                  className={fc(isEditable)}
+                  placeholder="Municipio"
+                  value={data.municipio}
+                  onChange={(e) => update("municipio", e.target.value)}
+                />
               </div>
               <div>
-                <label className={labelClass}>Estado</label>
-                <input disabled={!isEditable} className={fc(isEditable)} placeholder="Estado" value={data.entidad} onChange={(e) => update("entidad", e.target.value)} />
+                <label htmlFor="sc-entidad" className={labelClass}>
+                  Estado
+                </label>
+                <input
+                  id="sc-entidad"
+                  disabled={!isEditable}
+                  className={fc(isEditable)}
+                  placeholder="Estado"
+                  value={data.entidad}
+                  onChange={(e) => update("entidad", e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -313,8 +406,17 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
           <div>
             <span className={sectionHeadClass}>Datos del caso</span>
             <div>
-              <label className={labelClass}>Jornada</label>
-              <input disabled={!isEditable} className={fc(isEditable)} placeholder="Nombre de la jornada" value={data.jornada} onChange={(e) => update("jornada", e.target.value)} />
+              <label htmlFor="sc-jornada" className={labelClass}>
+                Jornada
+              </label>
+              <input
+                id="sc-jornada"
+                disabled={!isEditable}
+                className={fc(isEditable)}
+                placeholder="Nombre de la jornada"
+                value={data.jornada}
+                onChange={(e) => update("jornada", e.target.value)}
+              />
             </div>
           </div>
 
@@ -323,16 +425,43 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
             <span className={sectionHeadClass}>Seguimiento</span>
             <div className="space-y-3">
               <div>
-                <label className={labelClass}>Referencia del caso</label>
-                <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")} placeholder="Describe por que llego el caso y que solicito el ciudadano..." value={data.referencia} onChange={(e) => update("referencia", e.target.value)} />
+                <label htmlFor="sc-referencia" className={labelClass}>
+                  Referencia del caso
+                </label>
+                <textarea
+                  id="sc-referencia"
+                  disabled={!isEditable}
+                  className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")}
+                  placeholder="Describe por que llego el caso y que solicito el ciudadano..."
+                  value={data.referencia}
+                  onChange={(e) => update("referencia", e.target.value)}
+                />
               </div>
               <div>
-                <label className={labelClass}>Accion tomada</label>
-                <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")} placeholder="Describe que se hizo para atender el caso..." value={data.accionTomada} onChange={(e) => update("accionTomada", e.target.value)} />
+                <label htmlFor="sc-accion" className={labelClass}>
+                  Accion tomada
+                </label>
+                <textarea
+                  id="sc-accion"
+                  disabled={!isEditable}
+                  className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")}
+                  placeholder="Describe que se hizo para atender el caso..."
+                  value={data.accionTomada}
+                  onChange={(e) => update("accionTomada", e.target.value)}
+                />
               </div>
               <div>
-                <label className={labelClass}>Resultado / Beneficio otorgado</label>
-                <textarea disabled={!isEditable} className={cn(fc(isEditable), "min-h-[52px] resize-y leading-relaxed")} placeholder="Que se otorgo o por que no se pudo resolver..." value={data.resultado} onChange={(e) => update("resultado", e.target.value)} />
+                <label htmlFor="sc-resultado" className={labelClass}>
+                  Resultado / Beneficio otorgado
+                </label>
+                <textarea
+                  id="sc-resultado"
+                  disabled={!isEditable}
+                  className={cn(fc(isEditable), "min-h-[52px] resize-y leading-relaxed")}
+                  placeholder="Que se otorgo o por que no se pudo resolver..."
+                  value={data.resultado}
+                  onChange={(e) => update("resultado", e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -341,13 +470,29 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
           {mode === "view" && (
             <div className="flex items-center justify-end gap-2 pt-1">
               {!editing && (
-                <Button type="button" variant="secondary" size="sm" onClick={() => { savedData.current = data; setEditing(true); }}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    savedData.current = data;
+                    setEditing(true);
+                  }}
+                >
                   Editar ficha
                 </Button>
               )}
               {editing && (
                 <>
-                  <Button type="button" variant="tertiary" size="sm" onClick={() => { setData(savedData.current); setEditing(false); }}>
+                  <Button
+                    type="button"
+                    variant="tertiary"
+                    size="sm"
+                    onClick={() => {
+                      setData(savedData.current);
+                      setEditing(false);
+                    }}
+                  >
                     Cancelar
                   </Button>
                   <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
@@ -357,7 +502,6 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave }: 
               )}
             </div>
           )}
-
         </div>
       )}
     </div>

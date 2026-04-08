@@ -49,7 +49,14 @@ import { DuplicateModalRoot } from "@/plane-web/components/de-dupe/duplicate-mod
 import { IssueTypeSelect, WorkItemTemplateSelect } from "@/plane-web/components/issues/issue-modal";
 import { WorkItemModalAdditionalProperties } from "@/plane-web/components/issues/issue-modal/modal-additional-properties";
 import { useDebouncedDuplicateIssues } from "@/plane-web/hooks/use-debounced-duplicate-issues";
-import { SocialCaseForm, PENDING_KEY, PROFILE_PHOTO_KEY, injectSocialCaseIntoHtml, injectProfilePhotoIntoHtml } from "@/components/issues/social-case-form";
+import {
+  SocialCaseForm,
+  type SocialCaseData,
+  PENDING_KEY,
+  PROFILE_PHOTO_KEY,
+  injectSocialCaseIntoHtml,
+  injectProfilePhotoIntoHtml,
+} from "@/components/issues/social-case-form";
 import { ProfilePhotoUpload } from "@/components/issues/profile-photo-upload";
 import { FileService } from "@/services/file.service";
 import { EFileAssetType } from "@plane/types";
@@ -118,9 +125,16 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
   const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
   // URL del servidor (cuando la foto ya está guardada, viene del localStorage)
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(() => {
-    try { return localStorage.getItem(PROFILE_PHOTO_KEY); } catch { return null; }
+    try {
+      return localStorage.getItem(PROFILE_PHOTO_KEY);
+    } catch {
+      return null;
+    }
   });
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
+
+  // ref para capturar datos del SocialCaseForm en tiempo real (evita depender de localStorage)
+  const socialCaseDataRef = useRef<SocialCaseData | null>(null);
 
   // refs
   const editorRef = useRef<EditorRefApi>(null);
@@ -179,6 +193,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
   });
 
   // derived values
+  // eslint-disable-next-line no-shadow
   const projectDetails = projectId ? getProjectById(projectId) : undefined;
   const isDisabled = isSubmitting || isApplyingTemplate;
 
@@ -239,7 +254,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     return () => {
       if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Guarda el archivo y crea preview local inmediatamente. La subida real ocurre en handleFormSubmit.
@@ -250,7 +265,9 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     setProfilePhotoPreview(URL.createObjectURL(file));
     // Limpiar URL del servidor guardada anteriormente (ya no es válida)
     setProfilePhotoUrl(null);
-    try { localStorage.removeItem(PROFILE_PHOTO_KEY); } catch (_) {}
+    try {
+      localStorage.removeItem(PROFILE_PHOTO_KEY);
+    } catch (_) {}
   };
 
   // Sube la foto al servidor. Se llama justo antes de guardar el formulario.
@@ -268,7 +285,9 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
       const url = getFileURL(response.asset_url) ?? response.asset_url;
       setProfilePhotoUrl(url);
       profilePhotoFileRef.current = null;
-      try { localStorage.setItem(PROFILE_PHOTO_KEY, url); } catch (_) {}
+      try {
+        localStorage.setItem(PROFILE_PHOTO_KEY, url);
+      } catch (_) {}
       onAssetUpload(response.asset_id);
       return url;
     } catch (err) {
@@ -305,13 +324,16 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     let pendingKey: string | null = null;
     if (!data?.id) {
       try {
-        const pending = localStorage.getItem(PENDING_KEY);
-        if (pending) {
-          const socialData = JSON.parse(pending);
-          formData.description_html = injectSocialCaseIntoHtml(
-            formData.description_html ?? "<p></p>",
-            socialData
-          );
+        // Prioridad 1: datos del ref (capturados en tiempo real desde el componente)
+        // Prioridad 2: localStorage como respaldo
+        const socialData =
+          socialCaseDataRef.current ??
+          (() => {
+            const raw = localStorage.getItem(PENDING_KEY);
+            return raw ? JSON.parse(raw) : null;
+          })();
+        if (socialData) {
+          formData.description_html = injectSocialCaseIntoHtml(formData.description_html ?? "<p></p>", socialData);
           pendingKey = PENDING_KEY;
         }
       } catch (_) {}
@@ -339,14 +361,22 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
       .then(() => {
         // Borrar el pending SOLO después de confirmar que el issue se creó correctamente
         if (pendingKey) {
-          try { localStorage.removeItem(pendingKey); } catch (_) {}
+          try {
+            localStorage.removeItem(pendingKey);
+          } catch (_) {}
         }
+        socialCaseDataRef.current = null;
         // Resetear el SocialCaseForm y foto de perfil para el próximo item
         setSocialFormKey((k) => k + 1);
         setProfilePhotoUrl(null);
         profilePhotoFileRef.current = null;
-        if (profilePhotoPreview) { URL.revokeObjectURL(profilePhotoPreview); setProfilePhotoPreview(null); }
-        try { localStorage.removeItem(PROFILE_PHOTO_KEY); } catch (_) {}
+        if (profilePhotoPreview) {
+          URL.revokeObjectURL(profilePhotoPreview);
+          setProfilePhotoPreview(null);
+        }
+        try {
+          localStorage.removeItem(PROFILE_PHOTO_KEY);
+        } catch (_) {}
         setGptAssistantModal(false);
         if (isCreateMoreToggleEnabled && workItemTemplateId) {
           handleTemplateChange({
@@ -364,6 +394,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
           });
           editorRef?.current?.clearEditor();
         }
+        return undefined;
       })
       .catch((error) => {
         console.error(error);
@@ -407,7 +438,6 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     else onChange(null);
   };
 
-
   // debounced duplicate issues swr
   const { duplicateIssues } = useDebouncedDuplicateIssues(
     workspaceSlug?.toString(),
@@ -429,7 +459,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     const issue = getIssueById(parentId);
     if (!issue) return;
 
-    const projectDetails = getProjectById(issue.project_id);
+    const projectDetails = getProjectById(issue.project_id); // eslint-disable-line no-shadow
     if (!projectDetails) return;
 
     const stateDetails = getStateById(issue.state_id);
@@ -437,6 +467,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     setSelectedParentIssue(
       convertWorkItemDataToSearchResponse(workspaceSlug?.toString(), issue, projectDetails, stateDetails)
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watch, getIssueById, getProjectById, selectedParentIssue, getStateById]);
 
   // executing this useEffect when isDirty changes
@@ -475,7 +506,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
         <div className="w-full rounded-lg">
           <form
             ref={formRef}
-            onSubmit={handleSubmit((data) => handleFormSubmit(data))}
+            onSubmit={handleSubmit((formValues) => handleFormSubmit(formValues))}
             className="flex w-full flex-col"
           >
             <div className="rounded-t-lg bg-surface-1 p-5">
@@ -561,7 +592,15 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
               )}
             >
               <div className="px-5">
-                <SocialCaseForm key={socialFormKey} mode="create-no-save" />
+                {!data?.id && (
+                  <SocialCaseForm
+                    key={socialFormKey}
+                    mode="create-no-save"
+                    onDataChange={(d) => {
+                      socialCaseDataRef.current = d;
+                    }}
+                  />
+                )}
                 <IssueDescriptionEditor
                   control={control}
                   isDraft={isDraft}
@@ -623,7 +662,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                       onKeyDown={(e) => {
                         if (e.key === "Enter") onCreateMoreToggleChange(!isCreateMoreToggleEnabled);
                       }}
-                      role="button"
+                      role="button" // eslint-disable-line jsx-a11y/prefer-tag-over-role
                     >
                       <ToggleSwitch value={isCreateMoreToggleEnabled} onChange={() => {}} size="sm" />
                       <span className="text-caption-sm-regular">{t("create_more")}</span>

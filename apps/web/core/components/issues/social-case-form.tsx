@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@plane/propel/button";
 import { cn } from "@plane/utils";
+import { VENEZUELA_ESTADOS } from "./social-case-estados";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -409,15 +410,20 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <label htmlFor="sc-entidad" className={labelClass}>
                   Estado
                 </label>
-                <input
+                <select
                   id="sc-entidad"
                   disabled={!isEditable}
-                  autoCapitalize="sentences"
                   className={fc(isEditable)}
-                  placeholder="Estado"
                   value={data.entidad}
                   onChange={(e) => update("entidad", e.target.value)}
-                />
+                >
+                  <option value="">-- Seleccionar estado --</option>
+                  {VENEZUELA_ESTADOS.map((est) => (
+                    <option key={est} value={est}>
+                      {est}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

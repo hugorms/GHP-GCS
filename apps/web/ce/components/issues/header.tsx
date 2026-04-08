@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // icons
@@ -26,7 +26,9 @@ import { Breadcrumbs, Header } from "@plane/ui";
 // components
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { CountChip } from "@/components/common/count-chip";
-import { SocialCaseReportModal } from "@/components/issues/social-case-report-modal";
+const SocialCaseReportModal = lazy(() =>
+  import("@/components/issues/social-case-report-modal").then((m) => ({ default: m.SocialCaseReportModal }))
+);
 import { VENEZUELA_ESTADOS } from "@/components/issues/social-case-estados";
 import { useSocialCaseEstadoFilter } from "@/components/issues/social-case-estado-provider";
 import { FiltersDropdown } from "@/components/issues/issue-layouts/filters";
@@ -115,7 +117,11 @@ export const IssuesHeader = observer(function IssuesHeader() {
           <></>
         )}
       </Header.LeftItem>
-      {showReportModal && <SocialCaseReportModal onClose={() => setShowReportModal(false)} />}
+      {showReportModal && (
+        <Suspense fallback={null}>
+          <SocialCaseReportModal onClose={() => setShowReportModal(false)} />
+        </Suspense>
+      )}
       <Header.RightItem>
         <div className="hidden items-center gap-2 md:flex">
           {/* Filtro por estado de Venezuela — usa el mismo FiltersDropdown que Plane */}

@@ -1,5 +1,6 @@
 # Copyright (c) 2023-present Plane Software, Inc. and contributors
 # SPDX-License-Identifier: AGPL-3.0-only
+# rebuild
 
 # Django imports
 from django.contrib.postgres.aggregates import ArrayAgg

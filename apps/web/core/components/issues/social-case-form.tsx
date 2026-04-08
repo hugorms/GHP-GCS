@@ -138,7 +138,12 @@ export const extractProfilePhotoFromHtml = (html: string): string | null => {
   const match = html.match(PHOTO_RE);
   if (!match) return null;
   const srcMatch = match[0].match(/src="([^"]+)"/);
-  return srcMatch ? srcMatch[1] : null;
+  if (!srcMatch) return null;
+  // Normaliza: si la URL es absoluta de la API, extrae el path relativo
+  // para que getFileURL reconstruya con el API_BASE_URL actual (evita problemas de cambio de puerto)
+  const url = srcMatch[1];
+  const relMatch = url.match(/https?:\/\/[^/]+(\/api\/.+)/);
+  return relMatch ? relMatch[1] : url;
 };
 
 export const injectSocialCaseIntoHtml = (html: string, data: SocialCaseData): string => {

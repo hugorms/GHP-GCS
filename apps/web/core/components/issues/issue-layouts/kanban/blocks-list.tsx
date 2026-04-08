@@ -9,6 +9,7 @@ import { observer } from "mobx-react";
 // plane imports
 import type { TIssue, IIssueDisplayProperties, IIssueMap } from "@plane/types";
 // local imports
+import { useSocialCaseEstadoFilter } from "@/components/issues/social-case-estado-provider";
 import type { TRenderQuickActions } from "../list/list-view-types";
 import { KanbanIssueBlock } from "./block";
 
@@ -43,11 +44,14 @@ export const KanbanIssueBlocksList = observer(function KanbanIssueBlocksList(pro
     isEpic = false,
   } = props;
 
+  const { filteredIssueIds } = useSocialCaseEstadoFilter();
+  const visibleIssueIds = filteredIssueIds ? issueIds.filter((id) => filteredIssueIds.has(id)) : issueIds;
+
   return (
     <>
-      {issueIds && issueIds.length > 0 ? (
+      {visibleIssueIds && visibleIssueIds.length > 0 ? (
         <>
-          {issueIds.map((issueId, index) => {
+          {visibleIssueIds.map((issueId, index) => {
             if (!issueId) return null;
 
             let draggableId = issueId;

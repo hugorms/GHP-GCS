@@ -19,6 +19,7 @@ import { useProject } from "@/hooks/store/use-project";
 import { IssueBulkOperationsRoot } from "@/plane-web/components/issues/bulk-operations";
 // plane web hooks
 import { useBulkOperationStatus } from "@/plane-web/hooks/use-bulk-operation-status";
+import { useSocialCaseEstadoFilter } from "@/components/issues/social-case-estado-provider";
 // local imports
 import type { TRenderQuickActions } from "../list/list-view-types";
 import { QuickAddIssueRoot, SpreadsheetAddIssueButton } from "../quick-add";
@@ -66,6 +67,8 @@ export const SpreadsheetView = observer(function SpreadsheetView(props: Props) {
   const { currentProjectDetails } = useProject();
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
+  const { filteredIssueIds } = useSocialCaseEstadoFilter();
+  const visibleIssueIds = filteredIssueIds ? (issueIds ?? []).filter((id) => filteredIssueIds.has(id)) : issueIds;
 
   const isEstimateEnabled: boolean = currentProjectDetails?.estimate !== null;
 
@@ -77,14 +80,14 @@ export const SpreadsheetView = observer(function SpreadsheetView(props: Props) {
         return true;
       });
 
-  if (!issueIds || issueIds.length === 0) return <></>;
+  if (!visibleIssueIds || visibleIssueIds.length === 0) return <></>;
   return (
     <div className="relative flex h-full w-full flex-col overflow-x-hidden bg-layer-1 whitespace-nowrap text-secondary">
       <div ref={portalRef} className="spreadsheet-menu-portal" />
       <MultipleSelectGroup
         containerRef={containerRef}
         entities={{
-          [SPREADSHEET_SELECT_GROUP]: issueIds,
+          [SPREADSHEET_SELECT_GROUP]: visibleIssueIds,
         }}
         disabled={!isBulkOperationsEnabled || isEpic}
       >
@@ -95,7 +98,7 @@ export const SpreadsheetView = observer(function SpreadsheetView(props: Props) {
                 displayProperties={displayProperties}
                 displayFilters={displayFilters}
                 handleDisplayFilterUpdate={handleDisplayFilterUpdate}
-                issueIds={issueIds}
+                issueIds={visibleIssueIds ?? []}
                 isEstimateEnabled={isEstimateEnabled}
                 portalElement={portalRef}
                 quickActions={quickActions}

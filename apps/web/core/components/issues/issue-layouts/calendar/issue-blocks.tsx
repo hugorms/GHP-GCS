@@ -11,6 +11,7 @@ import type { TIssue, TPaginationData } from "@plane/types";
 import { renderFormattedPayloadDate } from "@plane/utils";
 // helpers
 import { useIssuesStore } from "@/hooks/use-issue-layout-store";
+import { useSocialCaseEstadoFilter } from "@/components/issues/social-case-estado-provider";
 import type { TRenderQuickActions } from "../list/list-view-types";
 import { CalendarIssueBlockRoot } from "./issue-block-root";
 import { CalendarQuickAddIssueActions } from "./quick-add-issue-actions";
@@ -57,6 +58,9 @@ export const CalendarIssueBlocks = observer(function CalendarIssueBlocks(props: 
     issues: { getGroupIssueCount, getPaginationData, getIssueLoader },
   } = useIssuesStore();
 
+  const { filteredIssueIds } = useSocialCaseEstadoFilter();
+  const visibleIssueIdList = filteredIssueIds ? issueIdList.filter((id) => filteredIssueIds.has(id)) : issueIdList;
+
   if (!formattedDatePayload) return null;
 
   const dayIssueCount = getGroupIssueCount(formattedDatePayload, undefined, false);
@@ -70,7 +74,7 @@ export const CalendarIssueBlocks = observer(function CalendarIssueBlocks(props: 
 
   return (
     <>
-      {issueIdList?.map((issueId) => (
+      {visibleIssueIdList?.map((issueId) => (
         <div key={issueId} className="relative cursor-pointer p-1 px-2">
           <CalendarIssueBlockRoot
             issueId={issueId}

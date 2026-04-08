@@ -12,6 +12,8 @@ import { useProjectState } from "@/hooks/store/use-project-state";
 import { APIService } from "@/services/api.service";
 import { API_BASE_URL } from "@plane/constants";
 import { extractFromHtml, extractProfilePhotoFromHtml } from "@/components/issues/social-case-form";
+import { VENEZUELA_ESTADOS } from "@/components/issues/social-case-estados";
+import { cn } from "@plane/utils";
 import {
   SocialCaseReportPDF,
   type ParsedIssueRow,
@@ -87,6 +89,10 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const [includePhotos, setIncludePhotos] = useState(true);
   const [includeDetails, setIncludeDetails] = useState(false);
   const [openAfter, setOpenAfter] = useState(true);
+  const [estadosFilter, setEstadosFilter] = useState<string[]>([]); // [] = Todos
+
+  const toggleEstadoModal = (estado: string) =>
+    setEstadosFilter((prev) => (prev.includes(estado) ? prev.filter((e) => e !== estado) : [...prev, estado]));
 
   // Fix: los issues del issueMap NO traen description_html (solo el detalle lo carga).
   // Fetacheamos directamente del API para tener el HTML completo con la ficha social.
@@ -153,6 +159,12 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       }
 
       const d = extractFromHtml(issue.description_html ?? "");
+
+      // Filtro por estado de Venezuela (multi-selección)
+      if (estadosFilter.length > 0) {
+        const entidad = d?.entidad?.trim().toLowerCase() ?? "";
+        if (!estadosFilter.some((e) => e.toLowerCase() === entidad)) continue;
+      }
       const photoUrl = extractProfilePhotoFromHtml(issue.description_html ?? "");
       const stateName = stateNames[issue.state_id ?? ""] ?? "Sin estado";
       const jornada = d?.jornada || "Sin jornada";
@@ -188,7 +200,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     }
 
     return { rows: parsedRows, byState: parsedByState, byJornada: parsedByJornada, conResultado: parsedConResultado };
-  }, [allIssues, stateNames, fromDate, toDate, memberRoot]);
+  }, [allIssues, stateNames, fromDate, toDate, memberRoot, estadosFilter]);
 
   const dateRangeLabel = useMemo(() => {
     if (!fromDate && !toDate) return "Todos los registros";
@@ -346,8 +358,71 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           </div>
         )}
 
+        {/* Filtro por estado de Venezuela */}
+        <div className="space-y-2">
+          <p className="text-12 text-tertiary">Filtrar por estado</p>
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {/* Chip "Todos" — limpia la selección */}
+              <button
+                type="button"
+                onClick={() => setEstadosFilter([])}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-11 font-medium transition-colors",
+                  estadosFilter.length === 0
+                    ? "border-accent-primary bg-accent-primary text-white"
+                    : "border-subtle bg-surface-2 text-tertiary hover:bg-layer-1 hover:text-secondary"
+                )}
+              >
+                Todos
+              </button>
+              {VENEZUELA_ESTADOS.map((estado) => {
+                const selected = estadosFilter.includes(estado);
+                return (
+                  <button
+                    key={estado}
+                    type="button"
+                    onClick={() => toggleEstadoModal(estado)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-full border px-3 py-1 text-11 font-medium transition-colors",
+                      selected
+                        ? "border-accent-primary bg-accent-primary text-white"
+                        : "border-subtle bg-surface-2 text-tertiary hover:bg-layer-1 hover:text-secondary"
+                    )}
+                  >
+                    {selected && (
+                      <svg className="h-2.5 w-2.5" viewBox="0 0 10 10" fill="none">
+                        <path
+                          d="M1.5 5L4 7.5L8.5 2.5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                    {estado}
+                  </button>
+                );
+              })}
+            </div>
+            {estadosFilter.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setEstadosFilter([])}
+                className="text-11 text-accent-primary hover:underline"
+              >
+                Limpiar selección ({estadosFilter.length})
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="rounded-lg border border-subtle bg-surface-2 p-4">
-          <p className="text-12 text-tertiary">{dateRangeLabel}</p>
+          <p className="text-12 text-tertiary">
+            {dateRangeLabel}
+            {estadoFilter ? ` · ${estadoFilter}` : ""}
+          </p>
           {loadingIssues ? (
             <p className="mt-3 text-12 text-tertiary">Cargando casos...</p>
           ) : (

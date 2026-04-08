@@ -8,7 +8,7 @@ import { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // icons
-import { Circle, FileText } from "lucide-react";
+import { Circle, FileText, MapPin } from "lucide-react";
 // plane imports
 import {
   EUserPermissions,
@@ -27,6 +27,9 @@ import { Breadcrumbs, Header } from "@plane/ui";
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { CountChip } from "@/components/common/count-chip";
 import { SocialCaseReportModal } from "@/components/issues/social-case-report-modal";
+import { VENEZUELA_ESTADOS } from "@/components/issues/social-case-estados";
+import { useSocialCaseEstadoFilter } from "@/components/issues/social-case-estado-provider";
+import { FiltersDropdown } from "@/components/issues/issue-layouts/filters";
 // constants
 import { HeaderFilters } from "@/components/issues/filters";
 // helpers
@@ -61,6 +64,7 @@ export const IssuesHeader = observer(function IssuesHeader() {
   const publishedURL = `${SPACE_APP_URL}/issues/${currentProjectDetails?.anchor}`;
 
   const [showReportModal, setShowReportModal] = useState(false);
+  const { estadosFilter, toggleEstado, clearEstados, loadingFilter } = useSocialCaseEstadoFilter();
 
   const issuesCount = getGroupIssueCount(undefined, undefined, false);
   const canUserCreateIssue = allowPermissions(
@@ -113,7 +117,68 @@ export const IssuesHeader = observer(function IssuesHeader() {
       </Header.LeftItem>
       {showReportModal && <SocialCaseReportModal onClose={() => setShowReportModal(false)} />}
       <Header.RightItem>
-        <div className="hidden gap-2 md:flex">
+        <div className="hidden items-center gap-2 md:flex">
+          {/* Filtro por estado de Venezuela — usa el mismo FiltersDropdown que Plane */}
+          <FiltersDropdown
+            miniIcon={<MapPin className="size-3.5" />}
+            title={
+              estadosFilter.length === 0
+                ? "Estado"
+                : estadosFilter.length === 1
+                  ? estadosFilter[0]
+                  : `${estadosFilter.length} estados`
+            }
+            placement="bottom-end"
+            isFiltersApplied={estadosFilter.length > 0}
+          >
+            <div className="flex w-52 flex-col overflow-hidden">
+              <div className="flex items-center justify-between border-b border-subtle px-3 py-2">
+                <span className="text-xs font-medium text-tertiary">Estado de Venezuela</span>
+                {estadosFilter.length > 0 && (
+                  <button type="button" onClick={clearEstados} className="text-xs text-accent-primary hover:underline">
+                    Limpiar
+                  </button>
+                )}
+              </div>
+              <div className="vertical-scrollbar scrollbar-sm max-h-64 overflow-y-auto py-1">
+                {VENEZUELA_ESTADOS.map((estado) => {
+                  const selected = estadosFilter.includes(estado);
+                  return (
+                    <button
+                      key={estado}
+                      type="button"
+                      onClick={() => toggleEstado(estado)}
+                      className={`text-sm flex w-full items-center gap-2.5 px-3 py-1.5 transition-colors hover:bg-surface-2 ${
+                        selected ? "text-accent-primary" : "text-secondary"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors ${
+                          selected ? "border-accent-primary bg-accent-primary" : "border-custom-border-300"
+                        }`}
+                      >
+                        {selected && (
+                          <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                            <path
+                              d="M1.5 5L4 7.5L8.5 2.5"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </span>
+                      <span>{estado}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {loadingFilter && (
+                <div className="text-xs animate-pulse border-t border-subtle px-3 py-2 text-tertiary">Filtrando...</div>
+              )}
+            </div>
+          </FiltersDropdown>
           <HeaderFilters
             projectId={projectId}
             currentProjectDetails={currentProjectDetails}

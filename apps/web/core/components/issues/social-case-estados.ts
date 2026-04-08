@@ -1,0 +1,30 @@
+// 24 estados de Venezuela + Distrito Capital
+export const VENEZUELA_ESTADOS = [
+  "Amazonas",
+  "Anzoátegui",
+  "Apure",
+  "Aragua",
+  "Barinas",
+  "Bolívar",
+  "Carabobo",
+  "Cojedes",
+  "Delta Amacuro",
+  "Distrito Capital",
+  "Falcón",
+  "Guárico",
+  "Guayana",
+  "La Guaira",
+  "Lara",
+  "Mérida",
+  "Miranda",
+  "Monagas",
+  "Nueva Esparta",
+  "Portuguesa",
+  "Sucre",
+  "Táchira",
+  "Trujillo",
+  "Yaracuy",
+  "Zulia",
+] as const;
+
+export type VenezuelaEstado = (typeof VENEZUELA_ESTADOS)[number];

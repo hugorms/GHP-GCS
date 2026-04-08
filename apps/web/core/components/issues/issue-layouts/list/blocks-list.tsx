@@ -9,6 +9,7 @@ import type { MutableRefObject } from "react";
 import type { TIssue, IIssueDisplayProperties, TIssueMap, TGroupedIssues } from "@plane/types";
 // hooks
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
+import { useSocialCaseEstadoFilter } from "@/components/issues/social-case-estado-provider";
 // types
 import { IssueBlockRoot } from "./block-root";
 import type { TRenderQuickActions } from "./list-view-types";
@@ -44,11 +45,16 @@ export function IssueBlocksList(props: Props) {
     isEpic = false,
   } = props;
 
+  const { filteredIssueIds } = useSocialCaseEstadoFilter();
+
+  // Aplicar filtro por estado de Venezuela si está activo
+  const visibleIssueIds = filteredIssueIds ? (issueIds as string[]).filter((id) => filteredIssueIds.has(id)) : issueIds;
+
   return (
     <div className="relative h-full w-full">
-      {issueIds &&
-        issueIds.length > 0 &&
-        issueIds.map((issueId: string, index: number) => (
+      {visibleIssueIds &&
+        visibleIssueIds.length > 0 &&
+        visibleIssueIds.map((issueId: string, index: number) => (
           <IssueBlockRoot
             key={issueId}
             issueId={issueId}
@@ -62,7 +68,7 @@ export function IssueBlocksList(props: Props) {
             containerRef={containerRef}
             selectionHelpers={selectionHelpers}
             groupId={groupId}
-            isLastChild={index === issueIds.length - 1}
+            isLastChild={index === visibleIssueIds.length - 1}
             isDragAllowed={isDragAllowed}
             canDropOverIssue={canDropOverIssue}
             isEpic={isEpic}

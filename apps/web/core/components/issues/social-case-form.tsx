@@ -233,9 +233,19 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
   }, [issueId, mode, descriptionHtml, editing]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+  const NO_CAP = new Set<keyof SocialCaseData>(["numeroCaso", "cedula", "telefono"]);
+  const TITLE_CAP = new Set<keyof SocialCaseData>(["nombre"]);
+
+  const capFirst = (f: keyof SocialCaseData, v: string) => {
+    if (NO_CAP.has(f)) return v;
+    if (TITLE_CAP.has(f)) return v.replace(/\b\w/g, (c) => c.toUpperCase());
+    return v.charAt(0).toUpperCase() + v.slice(1);
+  };
+
   const update = (field: keyof SocialCaseData, value: string) => {
+    const val = capFirst(field, value);
     setData((prev) => {
-      const next = { ...prev, [field]: value };
+      const next = { ...prev, [field]: val };
       if (mode === "create-no-save") {
         try {
           localStorage.setItem(PENDING_KEY, JSON.stringify(next));
@@ -326,6 +336,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <input
                   id="sc-nombre"
                   disabled={!isEditable}
+                  autoCapitalize="words"
                   className={fc(isEditable)}
                   placeholder="Nombre y apellido"
                   value={data.nombre}
@@ -352,6 +363,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <input
                   id="sc-direccion"
                   disabled={!isEditable}
+                  autoCapitalize="sentences"
                   className={fc(isEditable)}
                   placeholder="Barrio, sector, calle..."
                   value={data.direccion}
@@ -367,6 +379,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <input
                   id="sc-parroquia"
                   disabled={!isEditable}
+                  autoCapitalize="sentences"
                   className={fc(isEditable)}
                   placeholder="Parroquia"
                   value={data.parroquia}
@@ -380,6 +393,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <input
                   id="sc-municipio"
                   disabled={!isEditable}
+                  autoCapitalize="sentences"
                   className={fc(isEditable)}
                   placeholder="Municipio"
                   value={data.municipio}
@@ -393,6 +407,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <input
                   id="sc-entidad"
                   disabled={!isEditable}
+                  autoCapitalize="sentences"
                   className={fc(isEditable)}
                   placeholder="Estado"
                   value={data.entidad}
@@ -412,6 +427,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
               <input
                 id="sc-jornada"
                 disabled={!isEditable}
+                autoCapitalize="sentences"
                 className={fc(isEditable)}
                 placeholder="Nombre de la jornada"
                 value={data.jornada}
@@ -431,6 +447,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <textarea
                   id="sc-referencia"
                   disabled={!isEditable}
+                  autoCapitalize="sentences"
                   className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")}
                   placeholder="Describe por que llego el caso y que solicito el ciudadano..."
                   value={data.referencia}
@@ -444,6 +461,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <textarea
                   id="sc-accion"
                   disabled={!isEditable}
+                  autoCapitalize="sentences"
                   className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")}
                   placeholder="Describe que se hizo para atender el caso..."
                   value={data.accionTomada}
@@ -457,6 +475,7 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
                 <textarea
                   id="sc-resultado"
                   disabled={!isEditable}
+                  autoCapitalize="sentences"
                   className={cn(fc(isEditable), "min-h-[52px] resize-y leading-relaxed")}
                   placeholder="Que se otorgo o por que no se pudo resolver..."
                   value={data.resultado}

@@ -66,13 +66,15 @@ export const IssueTitleInput = observer(function IssueTitleInput(props: TIssueTi
             type="text"
             value={value}
             onChange={(e) => {
-              onChange(e.target.value);
+              const v = e.target.value;
+              onChange(v.replace(/\b\w/g, (c) => c.toUpperCase()));
               handleFormChange();
             }}
             ref={issueTitleRef || ref}
             hasError={Boolean(errors.name)}
             placeholder={t("title")}
             className="w-full text-body-sm-regular"
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             tabIndex={getIndex("name")}
           />

@@ -33,12 +33,27 @@ class SocialCaseReportEndpoint(BaseAPIView):
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
     def get(self, request, slug, project_id):
+        # Soporta múltiples estados: ?estados=Carabobo,Miranda,Lara
+        estados_raw = request.query_params.get("estados", "").strip()
+        estados = [e.strip() for e in estados_raw.split(",") if e.strip()] if estados_raw else []
+
+        base_filters = {
+            "workspace__slug": slug,
+            "project_id": project_id,
+            "description_html__contains": 'data-social-case="1"',
+        }
+
+        queryset = Issue.issue_objects.filter(**base_filters)
+
+        if estados:
+            # OR entre todos los estados seleccionados
+            estado_q = Q()
+            for e in estados:
+                estado_q |= Q(description_html__icontains=f'>{e}<')
+            queryset = queryset.filter(estado_q)
+
         queryset = (
-            Issue.issue_objects.filter(
-                workspace__slug=slug,
-                project_id=project_id,
-                description_html__contains='data-social-case="1"',
-            )
+            queryset
             .annotate(
                 # assignee_ids no es columna directa — es una relación M2M
                 assignee_ids=Coalesce(

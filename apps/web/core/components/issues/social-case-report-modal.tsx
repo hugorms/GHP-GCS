@@ -421,7 +421,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         <div className="rounded-lg border border-subtle bg-surface-2 p-4">
           <p className="text-12 text-tertiary">
             {dateRangeLabel}
-            {estadoFilter ? ` · ${estadoFilter}` : ""}
+            {estadosFilter.length > 0 ? ` · ${estadosFilter.join(", ")}` : ""}
           </p>
           {loadingIssues ? (
             <p className="mt-3 text-12 text-tertiary">Cargando casos...</p>

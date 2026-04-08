@@ -1,0 +1,7 @@
+{
+  "buildCommand": "pnpm build",
+  "outputDirectory": "build/client",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "framework": null,
+  "rewrites": [{ "source": "/((?!assets/|favicon\\.ico|robots\\.txt).*)", "destination": "/index.html" }]
+}

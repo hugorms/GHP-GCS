@@ -1,5 +1,34 @@
 {
   "permissions": {
-    "allow": ["Bash(bash setup.sh)"]
+    "allow": [
+      "Bash(bash setup.sh)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Read(//Users/soyrocatech/.claude/plugins/cache/superpowers-marketplace/superpowers/5.0.5/**)",
+      "Bash(bash scripts/start-server.sh --project-dir /Users/soyrocatech/Proyectos/GL/repos/GHP-GCS)",
+      "Bash(python -c \"from plane.db.models.issue import _SocialCaseParser; print\\('OK'\\)\")",
+      "Bash(python3 -c \"from plane.db.models.issue import _SocialCaseParser; print\\('OK'\\)\")",
+      "Bash(python -m ast /dev/stdin)",
+      "Bash(python3 -m ast /dev/stdin)",
+      "Bash(python -m ast apps/api/plane/db/migrations/0122_issue_social_case_fields.py)",
+      "Bash(python3 -m ast /Users/soyrocatech/Proyectos/GL/repos/GHP-GCS/apps/api/plane/db/migrations/0122_issue_social_case_fields.py)",
+      "Bash(python3 -m pytest tests/test_social_case_fields.py -v)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m pytest --version)",
+      "Bash(python3 -m pytest tests/test_social_case_fields.py -v -p no:cacheprovider --override-ini=\"addopts=\")",
+      "Bash(python3 -m pytest tests/test_social_case_fields.py -v --override-ini=\"addopts=\")",
+      "Bash(git commit -m ':*)",
+      "Bash(python -m ast plane/utils/grouper.py)",
+      "Bash(python -m ast plane/app/serializers/issue.py)",
+      "Bash(python3 -m ast plane/utils/grouper.py)",
+      "Bash(python3 -m ast plane/app/serializers/issue.py)",
+      "Bash(python3 -m ast /Users/soyrocatech/Proyectos/GL/repos/GHP-GCS/apps/api/plane/management/commands/backfill_social_case_fields.py)",
+      "Bash(pnpm tsc:*)",
+      "Bash(git -C /Users/soyrocatech/Proyectos/GL/repos/GHP-GCS diff 909238530..23684b8a6 -- apps/api/plane/db/models/issue.py)",
+      "Bash(git -C /Users/soyrocatech/Proyectos/GL/repos/GHP-GCS log 909238530..23684b8a6 --oneline)",
+      "Bash(python -m ast apps/api/plane/management/commands/backfill_social_case_fields.py)",
+      "Bash(python -m ast apps/api/plane/db/models/issue.py)",
+      "Bash(python3 -m ast apps/api/plane/management/commands/backfill_social_case_fields.py)",
+      "Bash(python3 -m ast apps/api/plane/db/models/issue.py)"
+    ]
   }
 }

@@ -1,0 +1,5 @@
+{"type":"server-started","port":53024,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:53024","screen_dir":"/Users/soyrocatech/Proyectos/GL/repos/GHP-GCS/.superpowers/brainstorm/39335-1775715743"}
+{"type":"screen-added","file":"/Users/soyrocatech/Proyectos/GL/repos/GHP-GCS/.superpowers/brainstorm/39335-1775715743/kanban-card-layout.html"}
+{"source":"user-event","type":"click","text":"🔖 CSS-042\n          ● Abierto\n        \n        \n        Solicitud de atención médica urgente para menor de edad\n        \n        \n          \n          María González Pérez\n          V-12.345.678\n        \n        \n        \n          🔴 Alta\n          📅 15 Abr\n        \n      \n    \n    \n      Opción B — Tarjeta ciudadano separada\n      El título del caso aparece primero. Luego una fila distintiva con fondo oscuro muestra la foto, nombre y cédula del ciudadano. Más estructurado, fácil de leer.","choice":"b","id":null,"timestamp":1775715788851}
+{"type":"screen-added","file":"/Users/soyrocatech/Proyectos/GL/repos/GHP-GCS/.superpowers/brainstorm/39335-1775715743/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}

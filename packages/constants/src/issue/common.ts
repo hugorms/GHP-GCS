@@ -70,23 +70,23 @@ export const ISSUE_PRIORITIES: {
 }[] = [
   {
     key: "urgent",
-    title: "Urgent",
+    title: "Urgente",
   },
   {
     key: "high",
-    title: "High",
+    title: "Alta",
   },
   {
     key: "medium",
-    title: "Medium",
+    title: "Media",
   },
   {
     key: "low",
-    title: "Low",
+    title: "Baja",
   },
   {
     key: "none",
-    title: "None",
+    title: "Sin prioridad",
   },
 ];
 
@@ -296,9 +296,9 @@ export const SPREADSHEET_PROPERTY_DETAILS: {
   priority: {
     i18n_title: "common.priority",
     ascendingOrderKey: "priority",
-    ascendingOrderTitle: "None",
+    ascendingOrderTitle: "Sin prioridad",
     descendingOrderKey: "-priority",
-    descendingOrderTitle: "Urgent",
+    descendingOrderTitle: "Urgente",
     icon: "PriorityPropertyIcon",
   },
   start_date: {

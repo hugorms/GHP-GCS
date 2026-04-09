@@ -274,9 +274,8 @@ class Issue(ProjectBaseModel):
                 if self.description_html and self.description_html.strip() not in ("", "<p></p>"):
                     _parser = _SocialCaseParser()
                     _parser.feed(self.description_html)
-                    if _parser.social_data:
-                        self.social_case_nombre = _parser.social_data.get("nombre", "")
-                        self.social_case_cedula = _parser.social_data.get("cedula", "")
+                    self.social_case_nombre = _parser.social_data.get("nombre", "") if _parser.social_data else ""
+                    self.social_case_cedula = _parser.social_data.get("cedula", "") if _parser.social_data else ""
                     self.social_case_foto_url = _parser.foto_url  # "" if no photo found — clears stale value
                 else:
                     self.social_case_nombre = ""
@@ -302,9 +301,8 @@ class Issue(ProjectBaseModel):
             if self.description_html and self.description_html.strip() not in ("", "<p></p>"):
                 _parser = _SocialCaseParser()
                 _parser.feed(self.description_html)
-                if _parser.social_data:
-                    self.social_case_nombre = _parser.social_data.get("nombre", "")
-                    self.social_case_cedula = _parser.social_data.get("cedula", "")
+                self.social_case_nombre = _parser.social_data.get("nombre", "") if _parser.social_data else ""
+                self.social_case_cedula = _parser.social_data.get("cedula", "") if _parser.social_data else ""
                 self.social_case_foto_url = _parser.foto_url  # "" if no photo found — clears stale value
             else:
                 self.social_case_nombre = ""

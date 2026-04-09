@@ -23,7 +23,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
-        qs = Issue.objects.exclude(description_html="").exclude(description_html="<p></p>")
+        qs = Issue.all_objects.exclude(description_html="").exclude(description_html="<p></p>")
         total = qs.count()
         self.stdout.write(f"Processing {total} issues with non-empty description_html...")
 
@@ -46,7 +46,7 @@ class Command(BaseCommand):
             if update:
                 if not dry_run:
                     # Use .update() to avoid triggering save() recursively
-                    Issue.objects.filter(pk=issue.pk).update(**update)
+                    Issue.all_objects.filter(pk=issue.pk).update(**update)
                 updated += 1
                 if dry_run:
                     self.stdout.write(f"  [dry-run] Would update issue {issue.id}: {list(update.keys())}")

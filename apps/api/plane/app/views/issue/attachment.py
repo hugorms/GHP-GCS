@@ -185,6 +185,10 @@ class IssueAttachmentV2Endpoint(BaseAPIView):
                 disposition="attachment",
                 filename=asset.attributes.get("name"),
             )
+            # ?as_url=1 → devuelve la URL como JSON en vez de redirigir
+            # (usado por el generador de PDF para evitar CORS con MinIO)
+            if request.GET.get("as_url") == "1":
+                return Response({"url": presigned_url})
             return HttpResponseRedirect(presigned_url)
 
         # Get all the attachments

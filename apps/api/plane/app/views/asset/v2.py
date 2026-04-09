@@ -623,6 +623,9 @@ class ProjectAssetEndpoint(BaseAPIView):
             disposition="attachment",
             filename=asset.attributes.get("name"),
         )
+        # ?as_url=1 → devuelve la URL como JSON (para evitar CORS con MinIO)
+        if request.GET.get("as_url") == "1":
+            return Response({"url": signed_url})
         # Redirect to the signed URL
         return HttpResponseRedirect(signed_url)
 

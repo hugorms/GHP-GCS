@@ -1,3 +1,4 @@
+import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 
 // ── Paleta ───────────────────────────────────────────────────────────────────
@@ -157,6 +158,22 @@ const S = StyleSheet.create({
   timelineLabelText: { fontSize: 8, color: C.gray700 },
   timelineLabelActive: { fontSize: 8, fontFamily: "Helvetica-Bold", color: C.blue },
 
+  // Adjuntos
+  attachPageTitle: { fontSize: 11, fontFamily: "Helvetica-Bold", color: C.gray900, marginBottom: 2 },
+  attachPageSub: { fontSize: 8, color: C.gray500, marginBottom: 8 },
+  attachFileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 4,
+    backgroundColor: C.gray100,
+    borderRadius: 4,
+  },
+  attachFileName: { fontSize: 9, color: C.gray700, flex: 1 },
+  attachFileNote: { fontSize: 8, color: C.gray500 },
+
   // Footer
   footer: {
     position: "absolute",
@@ -173,6 +190,12 @@ const S = StyleSheet.create({
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
+export type AttachmentInfo = {
+  name: string;
+  isImage: boolean;
+  base64?: string;
+};
+
 export type ParsedIssueRow = {
   id: string;
   sequenceId: number;
@@ -188,6 +211,7 @@ export type ParsedIssueRow = {
   accionTomada: string;
   resultado: string;
   beneficiado: boolean;
+  attachments?: AttachmentInfo[];
 };
 
 export type StateFlowStep = { id: string; name: string };
@@ -204,6 +228,7 @@ type Props = {
   includeCover?: boolean;
   includePhotos?: boolean;
   includeDetails?: boolean;
+  includeAttachments?: boolean;
 };
 
 // ── Timeline vertical de estados ─────────────────────────────────────────────
@@ -265,6 +290,7 @@ export const SocialCaseReportPDF = ({
   includeCover = true,
   includePhotos = true,
   includeDetails = false,
+  includeAttachments = false,
 }: Props) => {
   const total = rows.length;
   const beneficiados = rows.filter((r) => r.beneficiado).length;
@@ -415,82 +441,108 @@ export const SocialCaseReportPDF = ({
       {/* ══ DETALLE POR CASO ═════════════════════════════════════════════════ */}
       {includeDetails &&
         rows.map((row) => {
-          // photoUrl ya viene pre-resuelto como base64 desde el modal — no pasar por getFileURL
           const resolvedPhoto = includePhotos && row.photoUrl ? row.photoUrl : null;
+          const rowAttachments = includeAttachments ? (row.attachments ?? []) : [];
 
           return (
-            <Page key={`detail-${row.id}`} size="A4" style={S.page}>
-              {/* Banda del proyecto — siempre visible en cada página de detalle */}
-              <View style={S.detailPageHeader} fixed>
-                <Text style={S.detailPageProject}>{projectName}</Text>
-                <Text style={S.detailPageTag}>Reporte de Casos Sociales · {dateRange}</Text>
-              </View>
+            <React.Fragment key={`case-${row.id}`}>
+              <Page size="A4" style={S.page}>
+                <View style={S.detailPageHeader} fixed>
+                  <Text style={S.detailPageProject}>{projectName}</Text>
+                  <Text style={S.detailPageTag}>Reporte de Casos Sociales · {dateRange}</Text>
+                </View>
 
-              {/* Encabezado: foto + datos del ciudadano */}
-              <View style={S.detailHeader}>
-                {resolvedPhoto ? (
-                  <Image src={resolvedPhoto} style={S.detailPhoto} />
-                ) : (
-                  <View style={S.detailPhotoPlaceholder}>
-                    <Text style={S.detailPhotoText}>Sin foto</Text>
-                  </View>
-                )}
-
-                <View style={S.detailMeta}>
-                  <Text style={S.detailName}>{row.nombre}</Text>
-                  <Text style={S.detailId}>GCS-{row.sequenceId}</Text>
-
-                  <View style={S.metaGrid}>
-                    <View style={S.metaCol}>
-                      <Text style={S.metaLabel}>Cédula</Text>
-                      <Text style={S.metaValue}>{row.cedula}</Text>
-
-                      <Text style={S.metaLabel}>Municipio</Text>
-                      <Text style={S.metaValue}>{row.municipio}</Text>
+                <View style={S.detailHeader}>
+                  {resolvedPhoto ? (
+                    <Image src={resolvedPhoto} style={S.detailPhoto} />
+                  ) : (
+                    <View style={S.detailPhotoPlaceholder}>
+                      <Text style={S.detailPhotoText}>Sin foto</Text>
                     </View>
-                    <View style={S.metaCol}>
-                      <Text style={S.metaLabel}>Jornada</Text>
-                      <Text style={S.metaValue}>{row.jornada}</Text>
-
-                      <Text style={S.metaLabel}>Responsable</Text>
-                      <Text style={S.metaValue}>{row.responsable}</Text>
-                    </View>
-                    <View style={S.metaCol}>
-                      <Text style={S.metaLabel}>Estado actual</Text>
-                      <Text style={S.metaValue}>{row.stateName}</Text>
-
-                      <Text style={S.metaLabel}>Beneficiado</Text>
-                      <Text style={[S.metaValue, { color: row.beneficiado ? C.green : C.gray700 }]}>
-                        {row.beneficiado ? "Sí" : "No"}
-                      </Text>
+                  )}
+                  <View style={S.detailMeta}>
+                    <Text style={S.detailName}>{row.nombre}</Text>
+                    <Text style={S.detailId}>GCS-{row.sequenceId}</Text>
+                    <View style={S.metaGrid}>
+                      <View style={S.metaCol}>
+                        <Text style={S.metaLabel}>Cédula</Text>
+                        <Text style={S.metaValue}>{row.cedula}</Text>
+                        <Text style={S.metaLabel}>Municipio</Text>
+                        <Text style={S.metaValue}>{row.municipio}</Text>
+                      </View>
+                      <View style={S.metaCol}>
+                        <Text style={S.metaLabel}>Jornada</Text>
+                        <Text style={S.metaValue}>{row.jornada}</Text>
+                        <Text style={S.metaLabel}>Responsable</Text>
+                        <Text style={S.metaValue}>{row.responsable}</Text>
+                      </View>
+                      <View style={S.metaCol}>
+                        <Text style={S.metaLabel}>Estado actual</Text>
+                        <Text style={S.metaValue}>{row.stateName}</Text>
+                        <Text style={S.metaLabel}>Beneficiado</Text>
+                        <Text style={[S.metaValue, { color: row.beneficiado ? C.green : C.gray700 }]}>
+                          {row.beneficiado ? "Sí" : "No"}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
-              </View>
 
-              <View style={S.divider} />
+                <View style={S.divider} />
 
-              {/* Textos del caso */}
-              <View style={S.detailSection}>
-                <Text style={S.detailSectionTitle}>MOTIVO / REFERENCIA</Text>
-                <Text style={S.detailText}>{row.referencia || "—"}</Text>
-              </View>
+                <View style={S.detailSection}>
+                  <Text style={S.detailSectionTitle}>MOTIVO / REFERENCIA</Text>
+                  <Text style={S.detailText}>{row.referencia || "—"}</Text>
+                </View>
+                <View style={S.detailSection}>
+                  <Text style={S.detailSectionTitle}>ACCIÓN TOMADA</Text>
+                  <Text style={S.detailText}>{row.accionTomada || "—"}</Text>
+                </View>
+                <View style={S.detailSection}>
+                  <Text style={S.detailSectionTitle}>RESULTADO</Text>
+                  <Text style={S.detailText}>{row.resultado || "—"}</Text>
+                </View>
 
-              <View style={S.detailSection}>
-                <Text style={S.detailSectionTitle}>ACCIÓN TOMADA</Text>
-                <Text style={S.detailText}>{row.accionTomada || "—"}</Text>
-              </View>
+                {stateFlow.length > 0 && <Timeline stateFlow={stateFlow} currentStateId={row.stateId} />}
 
-              <View style={S.detailSection}>
-                <Text style={S.detailSectionTitle}>RESULTADO</Text>
-                <Text style={S.detailText}>{row.resultado || "—"}</Text>
-              </View>
+                <Footer projectName={projectName} generatedAtLabel={generatedAtLabel} />
+              </Page>
 
-              {/* Timeline de estado */}
-              {stateFlow.length > 0 && <Timeline stateFlow={stateFlow} currentStateId={row.stateId} />}
+              {/* ── PÁGINAS DE ADJUNTOS ── */}
+              {rowAttachments.map((att, attIdx) => (
+                <Page key={`att-${row.id}-${att.name}`} size="A4" style={S.page}>
+                  {/* Cabecera compacta — sin "fixed" para no romper el flex */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                    <Text style={{ fontSize: 8, color: C.gray500 }}>
+                      GCS-{row.sequenceId} · {row.nombre}
+                    </Text>
+                    <Text style={{ fontSize: 8, color: C.gray500 }}>
+                      Adjunto {attIdx + 1} / {rowAttachments.length}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 7, color: C.gray300, marginBottom: 8 }}>{att.name}</Text>
 
-              <Footer projectName={projectName} generatedAtLabel={generatedAtLabel} />
-            </Page>
+                  {att.isImage && att.base64 ? (
+                    <View style={{ alignItems: "center", marginTop: 8, marginBottom: 36 }}>
+                      <Image src={att.base64} style={{ width: 400, height: 520, objectFit: "contain" }} />
+                    </View>
+                  ) : att.isImage && !att.base64 ? (
+                    <View style={[S.attachFileRow, { backgroundColor: "#fee2e2" }]}>
+                      <Text style={[S.attachFileName, { color: "#ef4444" }]}>
+                        {att.name} — imagen detectada pero no se pudo convertir a base64
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={S.attachFileRow}>
+                      <Text style={S.attachFileName}>{att.name}</Text>
+                      <Text style={S.attachFileNote}>Ver archivo adjunto por separado</Text>
+                    </View>
+                  )}
+
+                  <Footer projectName={projectName} generatedAtLabel={generatedAtLabel} />
+                </Page>
+              ))}
+            </React.Fragment>
           );
         })}
     </Document>

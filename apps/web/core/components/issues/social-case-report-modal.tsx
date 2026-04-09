@@ -6,11 +6,12 @@ import { observer } from "mobx-react";
 import { pdf } from "@react-pdf/renderer";
 import { Button } from "@plane/propel/button";
 import { Checkbox, EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
-import { getBase64Image, getFileURL } from "@plane/utils";
+import { getFileURL } from "@plane/utils";
 import { useMember } from "@/hooks/store/use-member";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
 import { APIService } from "@/services/api.service";
+import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
 import { API_BASE_URL } from "@plane/constants";
 import { extractFromHtml, extractProfilePhotoFromHtml } from "@/components/issues/social-case-form";
 import { VENEZUELA_ESTADOS } from "@/components/issues/social-case-estados";
@@ -18,6 +19,7 @@ import { cn } from "@plane/utils";
 import {
   SocialCaseReportPDF,
   type ParsedIssueRow,
+  type AttachmentInfo,
   type StateFlowStep,
 } from "@/components/issues/social-case-report-pdf";
 
@@ -64,6 +66,31 @@ class SocialCaseService extends APIService {
   }
 }
 const socialCaseService = new SocialCaseService();
+const attachmentService = new IssueAttachmentService();
+
+// Convierte una URL directa (sin credenciales) a base64
+async function urlToBase64(url: string): Promise<string> {
+  const res = await fetch(url, { credentials: "omit" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("loadend", () => resolve(reader.result as string));
+    reader.addEventListener("error", () => reject(new Error("FileReader error")));
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Obtiene la URL pre-firmada de MinIO a través del API de Django (que requiere auth)
+// y luego descarga el archivo SIN credenciales (evita CORS wildcard+credentials)
+async function fetchBase64WithAuth(apiUrl: string): Promise<string> {
+  // Paso 1: pedir la URL pre-firmada como JSON (no redirect)
+  const jsonRes = await fetch(`${apiUrl}?as_url=1`, { credentials: "include" });
+  if (!jsonRes.ok) throw new Error(`HTTP ${jsonRes.status} al obtener URL`);
+  const { url } = await jsonRes.json();
+  // Paso 2: descargar de MinIO sin credenciales (pre-signed URL es auto-autenticada)
+  return urlToBase64(url);
+}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -89,6 +116,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const [includeCover, setIncludeCover] = useState(true);
   const [includePhotos, setIncludePhotos] = useState(true);
   const [includeDetails, setIncludeDetails] = useState(false);
+  const [includeAttachments, setIncludeAttachments] = useState(true);
   const [openAfter, setOpenAfter] = useState(true);
   const [estadosFilter, setEstadosFilter] = useState<string[]>([]); // [] = Todos
 
@@ -219,17 +247,62 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const generatedAtLabel = new Date().toLocaleDateString("es-VE");
       const projectName = projectDetails?.name ?? "Proyecto";
 
+      const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp"]);
+      const ws = workspaceSlug?.toString() ?? "";
+      const pid = projectId?.toString() ?? "";
+
       const resolvedRows: ParsedIssueRow[] = await Promise.all(
         rows.map(async (row) => {
-          if (!includePhotos || !row.photoUrl) return row;
-          try {
-            const raw = getFileURL(row.photoUrl) ?? row.photoUrl;
-            const fullUrl = raw.startsWith("http") ? raw : `${window.location.origin}${raw}`;
-            const base64 = await getBase64Image(fullUrl);
-            return { ...row, photoUrl: base64 };
-          } catch {
-            return { ...row, photoUrl: null };
+          // Resolver foto de perfil
+          let resolvedPhotoUrl = row.photoUrl;
+          if (includePhotos && row.photoUrl) {
+            try {
+              const raw = getFileURL(row.photoUrl) ?? row.photoUrl;
+              const apiUrl = raw.startsWith("http") ? raw : `${window.location.origin}${raw}`;
+              resolvedPhotoUrl = await fetchBase64WithAuth(apiUrl);
+            } catch (err) {
+              console.warn("[PDF] Error cargando foto perfil:", row.nombre, err);
+              resolvedPhotoUrl = null;
+            }
           }
+
+          // Resolver adjuntos
+          let attachments: AttachmentInfo[] = [];
+          if (includeAttachments && includeDetails) {
+            try {
+              const rawList = await attachmentService.getIssueAttachments(ws, pid, row.id);
+              console.log(`[PDF] Adjuntos de ${row.nombre} (${row.id}):`, rawList?.length ?? 0, rawList);
+              attachments = await Promise.all(
+                (rawList ?? []).map(async (a) => {
+                  // Detectar extensión desde el nombre Y desde la asset_url
+                  const nameExt = (a.attributes?.name ?? "").split(".").pop()?.toLowerCase() ?? "";
+                  const urlExt = (a.asset_url ?? "").split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+                  const ext = nameExt || urlExt;
+                  const isImage = IMAGE_EXTS.has(ext);
+                  console.log(
+                    `[PDF] adjunto: name="${a.attributes?.name}" url="${a.asset_url}" ext="${ext}" isImage=${isImage}`
+                  );
+                  if (isImage) {
+                    try {
+                      const url = getFileURL(a.asset_url) ?? a.asset_url;
+                      const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url}`;
+                      const base64 = await fetchBase64WithAuth(fullUrl);
+                      return { name: a.attributes?.name ?? "archivo", isImage: true, base64 };
+                    } catch (err) {
+                      console.warn("[PDF] Error cargando imagen adjunto:", a.attributes?.name, err);
+                      return { name: a.attributes?.name ?? "archivo", isImage: false };
+                    }
+                  }
+                  return { name: a.attributes?.name ?? "archivo", isImage: false };
+                })
+              );
+            } catch (err) {
+              console.error("[PDF] Error obteniendo adjuntos para", row.id, err);
+              attachments = [];
+            }
+          }
+
+          return { ...row, photoUrl: resolvedPhotoUrl, attachments };
         })
       );
 
@@ -246,6 +319,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           includeCover={includeCover}
           includePhotos={includePhotos}
           includeDetails={includeDetails}
+          includeAttachments={includeAttachments}
         />
       ).toBlob();
 
@@ -465,6 +539,22 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
               <p className="text-12 text-tertiary">Detalle por caso + diagrama del estado real.</p>
             </div>
             <Checkbox checked={includeDetails} onChange={() => setIncludeDetails((v) => !v)} disabled={generating} />
+          </div>
+
+          <div
+            className={cn("flex cursor-pointer items-center justify-between gap-3", !includeDetails && "opacity-40")}
+          >
+            <div className="space-y-0.5">
+              <p className="text-13 text-secondary">Incluir adjuntos</p>
+              <p className="text-12 text-tertiary">
+                Una página por adjunto (imágenes y archivos). Requiere reporte completo.
+              </p>
+            </div>
+            <Checkbox
+              checked={includeAttachments}
+              onChange={() => setIncludeAttachments((v) => !v)}
+              disabled={generating || !includeDetails}
+            />
           </div>
 
           <div className="flex cursor-pointer items-center justify-between gap-3">

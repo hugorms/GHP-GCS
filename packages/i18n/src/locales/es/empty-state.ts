@@ -9,7 +9,7 @@ export default {
     progress: {
       title: "Todavía no hay métricas de progreso para mostrar.",
       description:
-        "Comienza a establecer valores de propiedades en los elementos de trabajo para ver las métricas de progreso aquí.",
+        "Comienza a establecer valores de propiedades en los casos para ver las métricas de progreso aquí.",
     },
     updates: {
       title: "Aún no hay actualizaciones.",
@@ -44,10 +44,10 @@ export default {
       description: "El proyecto que buscas no existe.",
     },
     work_items: {
-      title: "Comienza con tu primer elemento de trabajo.",
+      title: "Comienza con tu primer caso.",
       description:
-        "Los elementos de trabajo son los bloques de construcción de tu proyecto — asigna responsables, establece prioridades y realiza un seguimiento del progreso fácilmente.",
-      cta_primary: "Crea tu primer elemento de trabajo",
+        "Los casos son los bloques de construcción de tu proyecto — asigna responsables, establece prioridades y realiza un seguimiento del progreso fácilmente.",
+      cta_primary: "Crea tu primer caso",
     },
     cycles: {
       title: "Agrupa y delimita tu trabajo en Ciclos.",
@@ -56,23 +56,23 @@ export default {
       cta_primary: "Establece tu primer ciclo",
     },
     cycle_work_items: {
-      title: "No hay elementos de trabajo para mostrar en este ciclo",
+      title: "No hay casos para mostrar en este ciclo",
       description:
-        "Crea elementos de trabajo para comenzar a monitorear el progreso de tu equipo en este ciclo y alcanzar tus objetivos a tiempo.",
-      cta_primary: "Crear elemento de trabajo",
-      cta_secondary: "Agregar elemento de trabajo existente",
+        "Crea casos para comenzar a monitorear el progreso de tu equipo en este ciclo y alcanzar tus objetivos a tiempo.",
+      cta_primary: "Crear caso",
+      cta_secondary: "Agregar caso existente",
     },
     modules: {
       title: "Asigna los objetivos de tu proyecto a Módulos y rastrea fácilmente.",
       description:
-        "Los módulos están compuestos de elementos de trabajo interconectados. Ayudan a monitorear el progreso a través de las fases del proyecto, cada una con fechas límite específicas y análisis para indicar qué tan cerca estás de alcanzar esas fases.",
+        "Los módulos están compuestos de casos interconectados. Ayudan a monitorear el progreso a través de las fases del proyecto, cada una con fechas límite específicas y análisis para indicar qué tan cerca estás de alcanzar esas fases.",
       cta_primary: "Establece tu primer módulo",
     },
     module_work_items: {
-      title: "No hay elementos de trabajo para mostrar en este Módulo",
-      description: "Crea elementos de trabajo para comenzar a monitorear este módulo.",
-      cta_primary: "Crear elemento de trabajo",
-      cta_secondary: "Agregar elemento de trabajo existente",
+      title: "No hay casos para mostrar en este Módulo",
+      description: "Crea casos para comenzar a monitorear este módulo.",
+      cta_primary: "Crear caso",
+      cta_secondary: "Agregar caso existente",
     },
     views: {
       title: "Guarda vistas personalizadas para tu proyecto",
@@ -81,19 +81,19 @@ export default {
       cta_primary: "Crear vista",
     },
     no_work_items_in_project: {
-      title: "Aún no hay elementos de trabajo en el proyecto",
-      description: "Agrega elementos de trabajo a tu proyecto y divide tu trabajo en piezas rastreables con vistas.",
-      cta_primary: "Agregar elemento de trabajo",
+      title: "Aún no hay casos en el proyecto",
+      description: "Agrega casos a tu proyecto y divide tu trabajo en piezas rastreables con vistas.",
+      cta_primary: "Agregar caso",
     },
     work_item_filter: {
-      title: "No se encontraron elementos de trabajo",
+      title: "No se encontraron casos",
       description: "Tu filtro actual no devolvió ningún resultado. Intenta cambiar los filtros.",
-      cta_primary: "Agregar elemento de trabajo",
+      cta_primary: "Agregar caso",
     },
     pages: {
       title: "Documenta todo — desde notas hasta PRDs",
       description:
-        "Las páginas te permiten capturar y organizar información en un solo lugar. Escribe notas de reuniones, documentación de proyectos y PRDs, incrusta elementos de trabajo y estructúralos con componentes listos para usar.",
+        "Las páginas te permiten capturar y organizar información en un solo lugar. Escribe notas de reuniones, documentación de proyectos y PRDs, incrusta casos y estructúralos con componentes listos para usar.",
       cta_primary: "Crea tu primera Página",
     },
     archive_pages: {
@@ -107,14 +107,14 @@ export default {
       cta_primary: "Crear solicitud de Entrada",
     },
     intake_main: {
-      title: "Selecciona un elemento de trabajo de Entrada para ver sus detalles",
+      title: "Selecciona un caso de Entrada para ver sus detalles",
     },
   },
   workspace_empty_state: {
     archive_work_items: {
-      title: "Aún no hay elementos de trabajo archivados",
+      title: "Aún no hay casos archivados",
       description:
-        "Manualmente o mediante automatización, puedes archivar elementos de trabajo que estén completados o cancelados. Encuéntralos aquí una vez archivados.",
+        "Manualmente o mediante automatización, puedes archivar casos que estén completados o cancelados. Encuéntralos aquí una vez archivados.",
       cta_primary: "Configurar automatización",
     },
     archive_cycles: {
@@ -130,28 +130,28 @@ export default {
       title: "Mantén a mano referencias importantes, recursos o documentos para tu trabajo",
     },
     inbox_sidebar_all: {
-      title: "Las actualizaciones de tus elementos de trabajo suscritos aparecerán aquí",
+      title: "Las actualizaciones de tus casos suscritos aparecerán aquí",
     },
     inbox_sidebar_mentions: {
-      title: "Las menciones a tus elementos de trabajo aparecerán aquí",
+      title: "Las menciones a tus casos aparecerán aquí",
     },
     your_work_by_priority: {
-      title: "Aún no hay elementos de trabajo asignados",
+      title: "Aún no hay casos asignados",
     },
     your_work_by_state: {
-      title: "Aún no hay elementos de trabajo asignados",
+      title: "Aún no hay casos asignados",
     },
     views: {
       title: "Aún no hay Vistas",
       description:
-        "Agrega elementos de trabajo a tu proyecto y usa vistas para filtrar, ordenar y monitorear el progreso sin esfuerzo.",
-      cta_primary: "Agregar elemento de trabajo",
+        "Agrega casos a tu proyecto y usa vistas para filtrar, ordenar y monitorear el progreso sin esfuerzo.",
+      cta_primary: "Agregar caso",
     },
     drafts: {
-      title: "Elementos de trabajo a medio escribir",
+      title: "Casos a medio escribir",
       description:
-        "Para probarlo, comienza a agregar un elemento de trabajo y déjalo a medias o crea tu primer borrador a continuación. 😉",
-      cta_primary: "Crear borrador de elemento de trabajo",
+        "Para probarlo, comienza a agregar un caso y déjalo a medias o crea tu primer borrador a continuación. 😉",
+      cta_primary: "Crear borrador de caso",
     },
     projects_archived: {
       title: "No hay proyectos archivados",
@@ -162,7 +162,7 @@ export default {
     },
     analytics_work_items: {
       title:
-        "Crea proyectos con elementos de trabajo y responsables para comenzar a rastrear el rendimiento, progreso e impacto del equipo aquí.",
+        "Crea proyectos con casos y responsables para comenzar a rastrear el rendimiento, progreso e impacto del equipo aquí.",
     },
     analytics_no_cycle: {
       title:
@@ -179,7 +179,7 @@ export default {
     estimates: {
       title: "Aún no hay estimaciones",
       description:
-        "Define cómo tu equipo mide el esfuerzo y rastréalo de manera consistente en todos los elementos de trabajo.",
+        "Define cómo tu equipo mide el esfuerzo y rastréalo de manera consistente en todos los casos.",
       cta_primary: "Agregar sistema de estimación",
     },
     labels: {

@@ -128,6 +128,9 @@ def issue_on_results(
         "archived_at",
         "state__group",
         "description_html",
+        "social_case_nombre",
+        "social_case_cedula",
+        "social_case_foto_url",
     ]
 
     if group_by in FIELD_MAPPER:

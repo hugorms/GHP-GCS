@@ -799,6 +799,9 @@ class IssueSerializer(DynamicBaseSerializer):
             "link_count",
             "is_draft",
             "archived_at",
+            "social_case_nombre",
+            "social_case_cedula",
+            "social_case_foto_url",
         ]
         read_only_fields = fields
 
@@ -858,6 +861,9 @@ class IssueListDetailSerializer(serializers.Serializer):
             "attachment_count": instance.attachment_count,
             "link_count": instance.link_count,
             "description_html": instance.description_html,
+            "social_case_nombre": instance.social_case_nombre,
+            "social_case_cedula": instance.social_case_cedula,
+            "social_case_foto_url": instance.social_case_foto_url,
         }
 
         # Handle expanded fields only when requested - using direct field access

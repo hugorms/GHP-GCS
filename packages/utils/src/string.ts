@@ -390,6 +390,7 @@ export const copyTextToClipboard = async (text: string): Promise<void> => {
  * joinUrlPath("/workspace", "projects") => "/workspace/projects"
  * joinUrlPath("workspace", "projects") => "/workspace/projects"
  * joinUrlPath("/workspace/", "/projects/") => "/workspace/projects/"
+ * joinUrlPath("/", "/") => "/" (root; never "//", which is invalid for Vite base)
  */
 export const joinUrlPath = (...segments: string[]): string => {
   if (segments.length === 0) return "";
@@ -424,7 +425,12 @@ export const joinUrlPath = (...segments: string[]): string => {
   try {
     // Create a dummy URL to leverage browser's URL normalization
     const dummyUrl = new URL(`http://example.com/${joined}`);
-    return dummyUrl.pathname;
+    const pathname = dummyUrl.pathname;
+    // e.g. joinUrlPath("/", "/") yields pathname "//" from new URL("http://example.com//") — invalid as Vite `base`
+    if (/^\/+$/.test(pathname)) {
+      return "/";
+    }
+    return pathname;
   } catch {
     // Fallback: manually handle double slashes by splitting and filtering
     const pathParts = joined.split("/").filter((part) => part !== "");

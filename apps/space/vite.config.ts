@@ -15,7 +15,10 @@ const viteEnv = Object.keys(process.env)
     return a;
   }, {});
 
-const basePath = joinUrlPath(process.env.VITE_SPACE_BASE_PATH ?? "", "/") ?? "/";
+const basePath = (() => {
+  const resolved = joinUrlPath(process.env.VITE_SPACE_BASE_PATH ?? "", "/") ?? "/";
+  return /^\/+$/.test(resolved) ? "/" : resolved;
+})();
 
 export default defineConfig(() => ({
   base: basePath,

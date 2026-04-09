@@ -48,7 +48,8 @@ export function IssueBlocksList(props: Props) {
   const { filteredIssueIds } = useSocialCaseEstadoFilter();
 
   // Aplicar filtro por estado de Venezuela si está activo
-  const visibleIssueIds = filteredIssueIds ? (issueIds as string[]).filter((id) => filteredIssueIds.has(id)) : issueIds;
+  const issueIdsArray = Array.isArray(issueIds) ? (issueIds as string[]) : [];
+  const visibleIssueIds = filteredIssueIds ? issueIdsArray.filter((id) => filteredIssueIds.has(id)) : issueIdsArray;
 
   return (
     <div className="relative h-full w-full">

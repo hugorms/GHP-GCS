@@ -1,12 +1,2 @@
-import { createContext, useContext } from "react";
-
-export type SocialCaseEstadoFilterContextValue = {
-  /** ID de issues que coinciden con el estado seleccionado. null = sin filtro activo (mostrar todos) */
-  filteredIssueIds: Set<string> | null;
-};
-
-export const SocialCaseEstadoFilterContext = createContext<SocialCaseEstadoFilterContextValue>({
-  filteredIssueIds: null,
-});
-
-export const useSocialCaseEstadoFilter = () => useContext(SocialCaseEstadoFilterContext);
+// Re-export desde el provider para evitar contextos duplicados
+export { useSocialCaseEstadoFilter } from "@/components/issues/social-case-estado-provider";

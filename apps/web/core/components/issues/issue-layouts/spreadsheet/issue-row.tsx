@@ -193,7 +193,7 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
   const [isMenuActive, setIsMenuActive] = useState(false);
   // refs
   const cellRef = useRef(null);
-  const menuActionRef = useRef<HTMLDivElement | null>(null);
+  const menuActionRef = useRef<HTMLButtonElement | null>(null);
   // router
   const { workspaceSlug, projectId } = useParams();
   // hooks
@@ -215,15 +215,16 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
   useOutsideClickDetector(menuActionRef, () => setIsMenuActive(false));
 
   const customActionButton = (
-    <div
+    <button
       ref={menuActionRef}
+      type="button"
       className={`flex h-full w-full cursor-pointer items-center rounded-sm p-1 text-placeholder hover:bg-layer-1 ${
         isMenuActive ? "bg-layer-1 text-primary" : "text-secondary"
       }`}
       onClick={() => setIsMenuActive(!isMenuActive)}
     >
       <MoreHorizontal className="h-3.5 w-3.5" />
-    </div>
+    </button>
   );
   if (!issueDetail) return null;
 
@@ -371,6 +372,7 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
                   </div>
                 </div>
                 <div
+                  role="none"
                   className={`opacity-0 transition-opacity group-hover:opacity-100 ${isMenuActive ? "!opacity-100" : ""}`}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -386,25 +388,19 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
           </Row>
         </ControlLink>
       </td>
-      {/* Columna ciudadano — visible cuando el caso tiene datos del ciudadano */}
-      {(issueDetail.social_case_nombre || issueDetail.social_case_foto_url) && (
-        <td className="border-b-[0.5px] border-r-[0.5px] border-subtle-1 bg-surface-1 min-w-[200px] max-w-[280px]">
-          <div className="flex h-11 items-center gap-2 px-3">
-            {issueDetail.social_case_foto_url && (
+      {/* Citizen photo column — always rendered to keep column alignment */}
+      {!isEpic && (
+        <td className="w-16 max-w-16 min-w-16 border-r-[0.5px] border-b-[0.5px] border-subtle-1 bg-surface-1">
+          <div className="flex h-11 items-center justify-center">
+            {issueDetail.social_case_foto_url ? (
               <img
                 src={getFileURL(issueDetail.social_case_foto_url) ?? ""}
                 alt={issueDetail.social_case_nombre ?? ""}
-                className="h-7 w-7 flex-shrink-0 rounded-md border border-subtle object-cover"
+                className="h-9 w-9 flex-shrink-0 rounded-full border border-subtle object-cover"
               />
+            ) : (
+              <div className="h-9 w-9 flex-shrink-0 rounded-full bg-surface-2" />
             )}
-            <div className="min-w-0 truncate">
-              {issueDetail.social_case_nombre && (
-                <p className="truncate text-xs text-primary">{issueDetail.social_case_nombre}</p>
-              )}
-              {issueDetail.social_case_cedula && (
-                <p className="truncate text-xs text-tertiary">{issueDetail.social_case_cedula}</p>
-              )}
-            </div>
           </div>
         </td>
       )}

@@ -45,7 +45,8 @@ export const KanbanIssueBlocksList = observer(function KanbanIssueBlocksList(pro
   } = props;
 
   const { filteredIssueIds } = useSocialCaseEstadoFilter();
-  const visibleIssueIds = filteredIssueIds ? issueIds.filter((id) => filteredIssueIds.has(id)) : issueIds;
+  const issueIdsArray = Array.isArray(issueIds) ? issueIds : [];
+  const visibleIssueIds = filteredIssueIds ? issueIdsArray.filter((id) => filteredIssueIds.has(id)) : issueIdsArray;
 
   return (
     <>

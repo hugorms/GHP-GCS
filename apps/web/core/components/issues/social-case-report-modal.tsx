@@ -113,6 +113,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [includeCover, setIncludeCover] = useState(true);
   const [includePhotos, setIncludePhotos] = useState(true);
   const [includeDetails, setIncludeDetails] = useState(false);
@@ -243,6 +244,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const handleDownload = async () => {
     if (rows.length === 0) return;
     setGenerating(true);
+    setProgress({ current: 0, total: rows.length });
     try {
       const generatedAtLabel = new Date().toLocaleDateString("es-VE");
       const projectName = projectDetails?.name ?? "Proyecto";
@@ -251,6 +253,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const ws = workspaceSlug?.toString() ?? "";
       const pid = projectId?.toString() ?? "";
 
+      let done = 0;
       const resolvedRows: ParsedIssueRow[] = await Promise.all(
         rows.map(async (row) => {
           // Resolver foto de perfil
@@ -260,8 +263,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
               const raw = getFileURL(row.photoUrl) ?? row.photoUrl;
               const apiUrl = raw.startsWith("http") ? raw : `${window.location.origin}${raw}`;
               resolvedPhotoUrl = await fetchBase64WithAuth(apiUrl);
-            } catch (err) {
-              console.warn("[PDF] Error cargando foto perfil:", row.nombre, err);
+            } catch {
               resolvedPhotoUrl = null;
             }
           }
@@ -271,37 +273,32 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           if (includeAttachments && includeDetails) {
             try {
               const rawList = await attachmentService.getIssueAttachments(ws, pid, row.id);
-              console.log(`[PDF] Adjuntos de ${row.nombre} (${row.id}):`, rawList?.length ?? 0, rawList);
               attachments = await Promise.all(
                 (rawList ?? []).map(async (a) => {
-                  // Detectar extensión desde el nombre Y desde la asset_url
                   const nameExt = (a.attributes?.name ?? "").split(".").pop()?.toLowerCase() ?? "";
                   const urlExt = (a.asset_url ?? "").split("?")[0].split(".").pop()?.toLowerCase() ?? "";
                   const ext = nameExt || urlExt;
                   const isImage = IMAGE_EXTS.has(ext);
-                  console.log(
-                    `[PDF] adjunto: name="${a.attributes?.name}" url="${a.asset_url}" ext="${ext}" isImage=${isImage}`
-                  );
                   if (isImage) {
                     try {
                       const url = getFileURL(a.asset_url) ?? a.asset_url;
                       const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url}`;
                       const base64 = await fetchBase64WithAuth(fullUrl);
                       return { name: a.attributes?.name ?? "archivo", isImage: true, base64 };
-                    } catch (err) {
-                      console.warn("[PDF] Error cargando imagen adjunto:", a.attributes?.name, err);
+                    } catch {
                       return { name: a.attributes?.name ?? "archivo", isImage: false };
                     }
                   }
                   return { name: a.attributes?.name ?? "archivo", isImage: false };
                 })
               );
-            } catch (err) {
-              console.error("[PDF] Error obteniendo adjuntos para", row.id, err);
+            } catch {
               attachments = [];
             }
           }
 
+          done += 1;
+          setProgress({ current: done, total: rows.length });
           return { ...row, photoUrl: resolvedPhotoUrl, attachments };
         })
       );
@@ -341,6 +338,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } finally {
       setGenerating(false);
+      setProgress(null);
     }
   };
 
@@ -565,6 +563,25 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
             <Checkbox checked={openAfter} onChange={() => setOpenAfter((v) => !v)} disabled={generating} />
           </div>
         </div>
+
+        {progress && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="text-12 text-tertiary">
+                Procesando caso {progress.current} de {progress.total}...
+              </p>
+              <p className="text-12 font-medium text-tertiary">
+                {Math.round((progress.current / progress.total) * 100)}%
+              </p>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+              <div
+                className="h-full rounded-full bg-accent-primary transition-all duration-300"
+                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="secondary" onClick={onClose} disabled={generating}>

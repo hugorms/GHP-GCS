@@ -20,7 +20,7 @@ import type { TIssue, IIssueDisplayProperties, IIssueMap } from "@plane/types";
 import { EIssueServiceType } from "@plane/types";
 // ui
 import { ControlLink, DropIndicator } from "@plane/ui";
-import { cn, generateWorkItemLink } from "@plane/utils";
+import { cn, generateWorkItemLink, getFileURL } from "@plane/utils";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
 import { HIGHLIGHT_CLASS, getIssueBlockId } from "@/components/issues/issue-layouts/utils";
@@ -123,6 +123,22 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
           })}
         </div>
       </div>
+
+      {/* Social case citizen block */}
+      {(issue.social_case_foto_url || issue.social_case_nombre) && (
+        <div className="flex items-start gap-2 mt-1 mb-0.5">
+          {issue.social_case_foto_url && (
+            <img
+              src={getFileURL(issue.social_case_foto_url) ?? ""}
+              alt={issue.social_case_nombre ?? ""}
+              className="h-9 w-9 flex-shrink-0 rounded-md border border-subtle object-cover"
+            />
+          )}
+          {issue.social_case_nombre && (
+            <p className="truncate pt-0.5 text-xs text-secondary">{issue.social_case_nombre}</p>
+          )}
+        </div>
+      )}
 
       <Tooltip tooltipContent={issue.name} isMobile={isMobile} renderByDefault={false}>
         <div className="line-clamp-1 w-full text-body-sm-medium text-primary">

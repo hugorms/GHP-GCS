@@ -19,7 +19,7 @@ import type { IIssueDisplayProperties, TIssue } from "@plane/types";
 import { EIssueServiceType } from "@plane/types";
 // ui
 import { ControlLink, Row } from "@plane/ui";
-import { cn, generateWorkItemLink } from "@plane/utils";
+import { cn, generateWorkItemLink, getFileURL } from "@plane/utils";
 // components
 import { MultipleSelectEntityAction } from "@/components/core/multiple-select";
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
@@ -386,6 +386,28 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
           </Row>
         </ControlLink>
       </td>
+      {/* Columna ciudadano — visible cuando el caso tiene datos del ciudadano */}
+      {(issueDetail.social_case_nombre || issueDetail.social_case_foto_url) && (
+        <td className="border-b-[0.5px] border-r-[0.5px] border-subtle-1 bg-surface-1 min-w-[200px] max-w-[280px]">
+          <div className="flex h-11 items-center gap-2 px-3">
+            {issueDetail.social_case_foto_url && (
+              <img
+                src={getFileURL(issueDetail.social_case_foto_url) ?? ""}
+                alt={issueDetail.social_case_nombre ?? ""}
+                className="h-7 w-7 flex-shrink-0 rounded-md border border-subtle object-cover"
+              />
+            )}
+            <div className="min-w-0 truncate">
+              {issueDetail.social_case_nombre && (
+                <p className="truncate text-xs text-primary">{issueDetail.social_case_nombre}</p>
+              )}
+              {issueDetail.social_case_cedula && (
+                <p className="truncate text-xs text-tertiary">{issueDetail.social_case_cedula}</p>
+              )}
+            </div>
+          </div>
+        </td>
+      )}
       {/* Rest of the columns */}
       {spreadsheetColumnsList.map((property) => (
         <IssueColumn

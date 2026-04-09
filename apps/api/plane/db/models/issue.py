@@ -4,6 +4,8 @@
 
 # Python import
 from uuid import uuid4
+import json as _json
+from html.parser import HTMLParser as _HTMLParser
 
 # Django imports
 from django.conf import settings
@@ -17,6 +19,47 @@ from django import apps
 
 # Module imports
 from plane.utils.html_processor import strip_tags
+
+
+class _SocialCaseParser(_HTMLParser):
+    """Extrae nombre, cedula y foto_url del description_html de un caso social.
+
+    Busca:
+    - <caption> con JSON del data-social-case table → nombre, cedula
+    - <img data-profile-photo="1"> → foto_url (ignora data: URIs)
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.in_caption = False
+        self.caption_text = ""
+        self.foto_url = ""
+        self.social_data = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = dict(attrs)
+        if tag == "caption":
+            self.in_caption = True
+            self.caption_text = ""  # reset for each new caption
+        if tag == "img" and attrs_dict.get("data-profile-photo") == "1":
+            src = attrs_dict.get("src", "")
+            # Ignorar data: URIs — no sobreviven al sanitizador nh3 y son URLs de blob temporales
+            if src and not src.startswith("data:"):
+                self.foto_url = src
+
+    def handle_endtag(self, tag):
+        if tag == "caption":
+            self.in_caption = False
+            try:
+                self.social_data = _json.loads(self.caption_text)
+            except Exception:
+                pass
+
+    def handle_data(self, data):
+        if self.in_caption:
+            self.caption_text += data
+
+
 from plane.db.mixins import SoftDeletionManager
 from plane.utils.exception_logger import log_exception
 from .project import ProjectBaseModel
@@ -135,6 +178,10 @@ class Issue(ProjectBaseModel):
     description_json = models.JSONField(blank=True, default=dict)
     description_html = models.TextField(blank=True, default="<p></p>")
     description_stripped = models.TextField(blank=True, null=True)
+    # Social case fields — auto-populated from description_html on save()
+    social_case_nombre = models.TextField(blank=True, default="")
+    social_case_cedula = models.TextField(blank=True, default="")
+    social_case_foto_url = models.CharField(max_length=2048, blank=True, default="")
     description_binary = models.BinaryField(null=True)
     priority = models.CharField(
         max_length=30,
@@ -223,6 +270,18 @@ class Issue(ProjectBaseModel):
                     if (self.description_html == "" or self.description_html is None)
                     else strip_tags(self.description_html)
                 )
+                # Extract social case fields from description_html
+                if self.description_html and self.description_html.strip() not in ("", "<p></p>"):
+                    _parser = _SocialCaseParser()
+                    _parser.feed(self.description_html)
+                    if _parser.social_data:
+                        self.social_case_nombre = _parser.social_data.get("nombre", "")
+                        self.social_case_cedula = _parser.social_data.get("cedula", "")
+                    self.social_case_foto_url = _parser.foto_url  # "" if no photo found — clears stale value
+                else:
+                    self.social_case_nombre = ""
+                    self.social_case_cedula = ""
+                    self.social_case_foto_url = ""
                 largest_sort_order = Issue.objects.filter(project=self.project, state=self.state).aggregate(
                     largest=models.Max("sort_order")
                 )["largest"]
@@ -239,6 +298,18 @@ class Issue(ProjectBaseModel):
                 if (self.description_html == "" or self.description_html is None)
                 else strip_tags(self.description_html)
             )
+            # Extract social case fields from description_html
+            if self.description_html and self.description_html.strip() not in ("", "<p></p>"):
+                _parser = _SocialCaseParser()
+                _parser.feed(self.description_html)
+                if _parser.social_data:
+                    self.social_case_nombre = _parser.social_data.get("nombre", "")
+                    self.social_case_cedula = _parser.social_data.get("cedula", "")
+                self.social_case_foto_url = _parser.foto_url  # "" if no photo found — clears stale value
+            else:
+                self.social_case_nombre = ""
+                self.social_case_cedula = ""
+                self.social_case_foto_url = ""
             super(Issue, self).save(*args, **kwargs)
 
     def __str__(self):

@@ -77,6 +77,10 @@ export type TBaseIssue = {
   is_draft: boolean;
   is_epic?: boolean;
   is_intake?: boolean;
+  // Social case fields — populated server-side from description_html
+  social_case_nombre?: string | null;
+  social_case_cedula?: string | null;
+  social_case_foto_url?: string | null;
 };
 
 type IssueRelation = {

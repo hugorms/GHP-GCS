@@ -6,6 +6,7 @@
 # Ver apps/live/.env.example y apps/live/src/env.ts
 #
 # Mismos requisitos de token que ghcr-api.yml (write:packages).
+# Rebuild: 2026-04-09 — disparar imagen tras actualizar variables en GitHub.
 
 name: GHCR — Live
 

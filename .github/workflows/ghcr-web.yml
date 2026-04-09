@@ -7,6 +7,7 @@
 #   VITE_WEB_BASE_PATH, VITE_WEBSITE_URL, VITE_SUPPORT_EMAIL).
 #
 # Mismos requisitos de token que ghcr-api.yml (write:packages).
+# Rebuild: 2026-04-09 — disparar imagen tras actualizar variables en GitHub.
 
 name: GHCR — Web
 

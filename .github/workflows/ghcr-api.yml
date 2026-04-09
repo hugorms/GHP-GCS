@@ -6,6 +6,7 @@
 # - PAT classic: marcar "write:packages" (suele incluir read).
 # - PAT fine-grained: permiso "Packages" = Read and write en el repo/org del paquete.
 # Login: usuario = dueño del PAT (github.actor o secreto GHCR_USERNAME si difiere).
+# Rebuild: 2026-04-09 — disparar imagen tras actualizar variables en GitHub.
 
 name: GHCR — API
 

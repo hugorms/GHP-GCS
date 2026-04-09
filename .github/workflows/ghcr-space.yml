@@ -5,6 +5,7 @@
 # (apps/space/Dockerfile.space acepta los mismos ARG que admin).
 #
 # Mismos requisitos de token que ghcr-api.yml (write:packages).
+# Rebuild: 2026-04-09 — disparar imagen tras actualizar variables en GitHub.
 
 name: GHCR — Space
 

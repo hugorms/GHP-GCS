@@ -1,5 +1,5 @@
 FROM python:3.12.10-alpine
-# bump: CI trigger rebuild
+# bump: 2026-04-09 — refresh tras variables GH
 
 # set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1

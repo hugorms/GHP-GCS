@@ -146,13 +146,13 @@ export function ResizableSidebar({
     if (!isAnySidebarDropdownOpen && isCollapsed && isHoveringTrigger) {
       handlePeekLeave();
     }
-  }, [isAnySidebarDropdownOpen]);
+  }, [isAnySidebarDropdownOpen, isCollapsed, isHoveringTrigger, handlePeekLeave]);
 
   useEffect(() => {
     if (!isAnyExtendedSidebarExpanded && isCollapsed && isHoveringTrigger) {
       handlePeekLeave();
     }
-  }, [isAnyExtendedSidebarExpanded]);
+  }, [isAnyExtendedSidebarExpanded, isCollapsed, isHoveringTrigger, handlePeekLeave]);
 
   // Reset peek when sidebar is expanded
   useEffect(() => {
@@ -176,6 +176,10 @@ export function ResizableSidebar({
 
   return (
     <>
+      {/* Mobile backdrop — closes sidebar when tapping outside on iPad/mobile */}
+      {isMobile && !isCollapsed && (
+        <div className="fixed inset-0 z-[19] bg-black/20" onClick={() => toggleCollapsedProp()} role="none" />
+      )}
       {/* Main Sidebar */}
       <div
         id="main-sidebar"
@@ -263,7 +267,7 @@ export function ResizableSidebar({
       </div>
 
       {/* Extended Sidebar */}
-      {extendedSidebar && extendedSidebar}
+      {extendedSidebar}
     </>
   );
 }

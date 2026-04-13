@@ -69,14 +69,15 @@ interface IssueDetailsBlockProps {
 const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props: IssueDetailsBlockProps) {
   const { cardRef, issue, updateIssue, quickActions, isReadOnly, displayProperties, isEpic = false } = props;
   // refs
-  const menuActionRef = useRef<HTMLDivElement | null>(null);
+  const menuActionRef = useRef<HTMLButtonElement | null>(null);
   // states
   const [isMenuActive, setIsMenuActive] = useState(false);
   // hooks
   const { isMobile } = usePlatformOS();
 
   const customActionButton = (
-    <div
+    <button
+      type="button"
       ref={menuActionRef}
       className={`flex h-full w-full cursor-pointer items-center rounded-sm p-1 text-placeholder hover:bg-layer-1 ${
         isMenuActive ? "bg-layer-1 text-primary" : "text-secondary"
@@ -84,16 +85,11 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
       onClick={() => setIsMenuActive(!isMenuActive)}
     >
       <MoreHorizontal className="h-3.5 w-3.5" />
-    </div>
+    </button>
   );
 
   // derived values
   const subIssueCount = issue?.sub_issues_count ?? 0;
-
-  const handleEventPropagation = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-  };
 
   useOutsideClickDetector(menuActionRef, () => setIsMenuActive(false));
 
@@ -110,11 +106,12 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
           />
         )}
         <div
+          role="none"
           className={cn("absolute -top-1 right-0", {
             "hidden group-hover/kanban-block:block": !isMobile,
             "!block": isMenuActive,
           })}
-          onClick={handleEventPropagation}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
         >
           {quickActions({
             issue,
@@ -127,12 +124,14 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
       {/* Social case citizen block */}
       {(issue.social_case_foto_url || issue.social_case_nombre) && (
         <div className="flex items-start gap-2 mt-1 mb-0.5">
-          {issue.social_case_foto_url && (
+          {issue.social_case_foto_url ? (
             <img
               src={getFileURL(issue.social_case_foto_url) ?? ""}
               alt={issue.social_case_nombre ?? ""}
-              className="h-9 w-9 flex-shrink-0 rounded-md border border-subtle object-cover"
+              className="h-9 w-9 flex-shrink-0 rounded-full border border-subtle object-cover"
             />
+          ) : (
+            <div className="h-9 w-9 flex-shrink-0 rounded-full bg-surface-2" />
           )}
           {issue.social_case_nombre && (
             <p className="truncate pt-0.5 text-xs text-secondary">{issue.social_case_nombre}</p>
@@ -262,7 +261,14 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
         },
       })
     );
-  }, [cardRef?.current, issue?.id, isDragAllowed, canDropOverIssue, setIsCurrentBlockDragging, setIsDraggingOverBlock]);
+  }, [
+	issue?.id,
+	isDragAllowed,
+	canDropOverIssue,
+	setIsCurrentBlockDragging,
+	setIsDraggingOverBlock,
+	setIsKanbanDragging
+]);
 
   if (!issue) return null;
 

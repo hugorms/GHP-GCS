@@ -24,8 +24,15 @@ const S = StyleSheet.create({
   // ── PORTADA ──
   coverPage: { padding: 48, flexDirection: "column", justifyContent: "flex-start" },
   logo: { width: 32, height: 32, marginBottom: 24 },
-  coverTitle: { fontSize: 24, fontFamily: "Helvetica-Bold", color: C.black, marginBottom: 4 },
-  coverSub: { fontSize: 11, color: C.gray500, marginBottom: 28 },
+  coverTitle: {
+    fontSize: 24,
+    fontFamily: "Helvetica-Bold",
+    color: C.black,
+    marginBottom: 4,
+    textAlign: "center",
+    hyphens: "none",
+  },
+  coverSub: { fontSize: 11, color: C.gray500, marginBottom: 28, textAlign: "center" },
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
   statBox: {
     flex: 1,

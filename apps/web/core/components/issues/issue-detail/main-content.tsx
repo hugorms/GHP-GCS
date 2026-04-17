@@ -40,6 +40,7 @@ import {
   extractFromHtml,
   extractProfilePhotoFromHtml,
 } from "@/components/issues/social-case-form";
+import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
 import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
@@ -71,12 +72,17 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
     peekIssue,
   } = useIssueDetail();
   const { getProjectById } = useProject();
-  const { getStateById } = useProjectState();
+  const { getStateById, getProjectStates } = useProjectState();
   const { setShowAlert } = useReloadConfirmations(isSubmitting === "submitting");
   // derived values
   const projectDetails = getProjectById(projectId);
   const issue = issueId ? getIssueById(issueId) : undefined;
-  const isClosed = issue?.state_id ? getStateById(issue.state_id)?.group === "completed" : false;
+  const currentState = issue?.state_id ? getStateById(issue.state_id) : undefined;
+  const isClosed = currentState?.group === "completed";
+  const isArticulacion = Boolean(currentState?.name?.toLowerCase().includes("articulaci"));
+  const { handleStateChange } = useSocialCaseStateChange({ workspaceSlug, projectId, issueId, issueOperations });
+  const projectStates = getProjectStates(projectId);
+  const completedStateId = projectStates?.find((s) => s.group === "completed")?.id;
   // debounced duplicate issues swr
   const { duplicateIssues } = useDebouncedDuplicateIssues(
     workspaceSlug,
@@ -158,12 +164,20 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           mode="view"
           descriptionHtml={issue.description_html ?? ""}
           isClosed={isClosed}
+          isArticulacion={isArticulacion}
           onSave={async (newHtml) => {
             if (!workspaceSlug || !issue.project_id) return;
             await issueOperations.update(workspaceSlug.toString(), issue.project_id, issue.id, {
               description_html: newHtml,
             });
           }}
+          onComplete={
+            completedStateId
+              ? async () => {
+                  await handleStateChange(completedStateId);
+                }
+              : undefined
+          }
         />
 
         <DescriptionInput

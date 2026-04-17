@@ -41,6 +41,7 @@ import {
   extractFromHtml,
   extractProfilePhotoFromHtml,
 } from "@/components/issues/social-case-form";
+import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
 // services init
 const workItemVersionService = new WorkItemVersionService();
 
@@ -65,7 +66,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
     issue: { getIssueById },
   } = useIssueDetail();
   const { getProjectById } = useProject();
-  const { getStateById } = useProjectState();
+  const { getStateById, getProjectStates } = useProjectState();
   const { getUserDetails } = useMember();
   // reload confirmation
   const { setShowAlert } = useReloadConfirmations(isSubmitting === "submitting");
@@ -84,7 +85,17 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
   // derived values
   const issue = issueId ? getIssueById(issueId) : undefined;
   const projectDetails = issue?.project_id ? getProjectById(issue?.project_id) : undefined;
-  const isClosed = issue?.state_id ? getStateById(issue.state_id)?.group === "completed" : false;
+  const currentState = issue?.state_id ? getStateById(issue.state_id) : undefined;
+  const isClosed = currentState?.group === "completed";
+  const isArticulacion = Boolean(currentState?.name?.toLowerCase().includes("articulaci"));
+  const projectStates = issue?.project_id ? getProjectStates(issue.project_id) : undefined;
+  const completedStateId = projectStates?.find((s) => s.group === "completed")?.id;
+  const { handleStateChange } = useSocialCaseStateChange({
+    workspaceSlug,
+    projectId: issue?.project_id ?? "",
+    issueId,
+    issueOperations,
+  });
   // debounced duplicate issues swr
   const { duplicateIssues } = useDebouncedDuplicateIssues(
     workspaceSlug,
@@ -157,12 +168,20 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         mode="view"
         descriptionHtml={issue.description_html ?? ""}
         isClosed={isClosed}
+        isArticulacion={isArticulacion}
         onSave={async (newHtml) => {
           if (!workspaceSlug || !issue.project_id) return;
           await issueOperations.update(workspaceSlug.toString(), issue.project_id, issue.id, {
             description_html: newHtml,
           });
         }}
+        onComplete={
+          completedStateId
+            ? async () => {
+                await handleStateChange(completedStateId);
+              }
+            : undefined
+        }
       />
 
       <DescriptionInput

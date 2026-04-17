@@ -35,8 +35,12 @@ type Props = {
   onSave?: (newDescriptionHtml: string) => Promise<void>;
   /** Callback llamado en tiempo real con los datos del formulario (modo create-no-save) */
   onDataChange?: (data: SocialCaseData) => void;
-  /** Si true, muestra y habilita la sección de cierre del caso */
+  /** Si true, el caso ya está resuelto — sección cierre en solo lectura */
   isClosed?: boolean;
+  /** Si true, el caso está en articulación — muestra sección cierre editable y botón "Resolver caso" */
+  isArticulacion?: boolean;
+  /** Llamado al guardar la ficha completa desde articulación para transicionar a Resuelto */
+  onComplete?: () => Promise<void>;
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -194,6 +198,15 @@ const fieldReadonly = "border-subtle bg-surface-1 text-primary cursor-default ou
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+const ARTICULACION_REQUIRED: (keyof SocialCaseData)[] = [
+  "nombre",
+  "cedula",
+  "resultado",
+  "referencia",
+  "nombreBeneficiario",
+  "cedulaBeneficiario",
+];
+
 export const SocialCaseForm = ({
   issueId,
   mode,
@@ -201,6 +214,8 @@ export const SocialCaseForm = ({
   onSave,
   onDataChange,
   isClosed = false,
+  isArticulacion = false,
+  onComplete,
 }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
@@ -303,7 +318,23 @@ export const SocialCaseForm = ({
     }
   };
 
-  const isEditable = mode === "create-no-save" || editing;
+  const saveAndComplete = async () => {
+    if (!onSave || !onComplete) return;
+    setSaving(true);
+    try {
+      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, data);
+      await onSave(newHtml);
+      await onComplete();
+      setEditing(false);
+    } catch (_) {
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const articulacionComplete = isArticulacion ? ARTICULACION_REQUIRED.every((k) => data[k]?.trim()) : false;
+
+  const isEditable = mode === "create-no-save" || editing || isArticulacion;
 
   const fc = (editable: boolean) => cn(fieldBase, editable ? fieldEditable : fieldReadonly);
 
@@ -521,10 +552,32 @@ export const SocialCaseForm = ({
             </div>
           </div>
 
-          {/* SECCION 4: CIERRE DEL CASO — solo visible cuando el caso está resuelto */}
-          {isClosed && (
-            <div className="border-green-500/30 bg-green-500/5 space-y-3 rounded-md border p-3">
-              <span className={cn(sectionHeadClass, "text-green-600 dark:text-green-400")}>Cierre del caso</span>
+          {/* SECCION 4: CIERRE DEL CASO — visible en articulación (editable) o resuelto (lectura) */}
+          {(isClosed || isArticulacion) && (
+            <div
+              className={cn(
+                "space-y-3 rounded-md border p-3",
+                isArticulacion && !isClosed ? "border-blue-500/30 bg-blue-500/5" : "border-green-500/30 bg-green-500/5"
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={cn(
+                    sectionHeadClass,
+                    "mb-0",
+                    isArticulacion && !isClosed
+                      ? "text-blue-600 dark:text-blue-400"
+                      : "text-green-600 dark:text-green-400"
+                  )}
+                >
+                  {isArticulacion && !isClosed ? "Articulación del caso" : "Cierre del caso"}
+                </span>
+                {isArticulacion && !isClosed && (
+                  <span className="text-xs text-custom-text-400">
+                    {ARTICULACION_REQUIRED.filter((k) => data[k]?.trim()).length}/{ARTICULACION_REQUIRED.length} campos
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                 <div>
                   <label htmlFor="sc-solicitante" className={labelClass}>
@@ -540,19 +593,21 @@ export const SocialCaseForm = ({
                     onChange={(e) => update("solicitante", e.target.value)}
                   />
                 </div>
-                <div>
-                  <label htmlFor="sc-fecha-cierre" className={labelClass}>
-                    Fecha de cierre
-                  </label>
-                  <input
-                    id="sc-fecha-cierre"
-                    type="date"
-                    disabled={!isEditable}
-                    className={fc(isEditable)}
-                    value={data.fechaCierre}
-                    onChange={(e) => update("fechaCierre", e.target.value)}
-                  />
-                </div>
+                {!isArticulacion && (
+                  <div>
+                    <label htmlFor="sc-fecha-cierre" className={labelClass}>
+                      Fecha de cierre
+                    </label>
+                    <input
+                      id="sc-fecha-cierre"
+                      type="date"
+                      disabled={!isEditable}
+                      className={fc(isEditable)}
+                      value={data.fechaCierre}
+                      onChange={(e) => update("fechaCierre", e.target.value)}
+                    />
+                  </div>
+                )}
                 <div>
                   <label htmlFor="sc-nombre-beneficiario" className={labelClass}>
                     Nombre del beneficiario
@@ -595,6 +650,27 @@ export const SocialCaseForm = ({
                   onChange={(e) => update("observacionCierre", e.target.value)}
                 />
               </div>
+
+              {/* Botón resolver caso — solo en articulación */}
+              {isArticulacion && !isClosed && mode === "view" && (
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  {!articulacionComplete && (
+                    <span className="text-xs text-custom-text-400">
+                      Completa los campos requeridos para resolver el caso
+                    </span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    loading={saving}
+                    disabled={!articulacionComplete}
+                    onClick={saveAndComplete}
+                  >
+                    Resolver caso
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

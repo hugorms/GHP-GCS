@@ -231,15 +231,14 @@ export function SocialCaseFichaPDF({
   generatedAtLabel,
   logoUrl,
 }: SocialCaseFichaProps) {
-  // Fotos de entrega: hasta 3 imágenes de los adjuntos
-  const fotosEntrega = attachments.filter((a) => a.isImage && a.base64);
+  // Matching por prefijo de nombre de archivo
+  const byPrefix = (prefix: string) => attachments.find((a) => a.isImage && a.base64 && a.name.startsWith(prefix));
 
-  // Las 4 columnas de foto: CI solicitante, CI beneficiario, CI participante, Entrega
   const fotoSlots = [
-    { label: "SOLICITUD", img: fotosEntrega[0] },
-    { label: "C.I. DEL SOLICITANTE", img: fotosEntrega[1] },
-    { label: "C.I. DEL BENEFICIARIO", img: fotosEntrega[2] },
-    { label: "ENTREGA", img: fotosEntrega[3] },
+    { label: "SOLICITUD", img: byPrefix("[SOLICITUD]") },
+    { label: "C.I. DEL SOLICITANTE", img: byPrefix("[CI_SOL]") },
+    { label: "C.I. DEL BENEFICIARIO", img: byPrefix("[CI_BEN]") },
+    { label: "ENTREGA", img: byPrefix("[ENTREGA]") },
   ];
 
   const numeroCaso = data.numeroCaso ? `#${data.numeroCaso}` : `GCS-${sequenceId}`;

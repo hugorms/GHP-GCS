@@ -42,6 +42,9 @@ import {
   extractProfilePhotoFromHtml,
 } from "@/components/issues/social-case-form";
 import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
+import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
+
+const attachmentService = new IssueAttachmentService();
 // services init
 const workItemVersionService = new WorkItemVersionService();
 
@@ -182,6 +185,11 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
               }
             : undefined
         }
+        onSlotUpload={async (slotPrefix, file) => {
+          if (!issue.project_id) return;
+          const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
+          await attachmentService.uploadIssueAttachment(workspaceSlug, issue.project_id, issueId, prefixedFile);
+        }}
       />
 
       <DescriptionInput

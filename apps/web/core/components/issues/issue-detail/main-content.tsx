@@ -41,6 +41,9 @@ import {
   extractProfilePhotoFromHtml,
 } from "@/components/issues/social-case-form";
 import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
+import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
+
+const attachmentService = new IssueAttachmentService();
 import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
@@ -178,6 +181,10 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
                 }
               : undefined
           }
+          onSlotUpload={async (slotPrefix, file) => {
+            const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
+            await attachmentService.uploadIssueAttachment(workspaceSlug, projectId, issueId, prefixedFile);
+          }}
         />
 
         <DescriptionInput

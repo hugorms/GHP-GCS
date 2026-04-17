@@ -41,6 +41,8 @@ type Props = {
   isArticulacion?: boolean;
   /** Llamado al guardar la ficha completa desde articulación para transicionar a Resuelto */
   onComplete?: () => Promise<void>;
+  /** Llamado al subir un archivo a un slot específico de evidencia */
+  onSlotUpload?: (slotPrefix: string, file: File) => Promise<void>;
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -198,6 +200,13 @@ const fieldReadonly = "border-subtle bg-surface-1 text-primary cursor-default ou
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+export const EVIDENCE_SLOTS = [
+  { prefix: "[SOLICITUD]", label: "Adj. Solicitud" },
+  { prefix: "[CI_SOL]", label: "Adj. C.I. Solicitante" },
+  { prefix: "[CI_BEN]", label: "Adj. C.I. Beneficiario" },
+  { prefix: "[ENTREGA]", label: "Adj. Entrega" },
+] as const;
+
 const ARTICULACION_REQUIRED: (keyof SocialCaseData)[] = [
   "nombre",
   "cedula",
@@ -216,12 +225,15 @@ export const SocialCaseForm = ({
   isClosed = false,
   isArticulacion = false,
   onComplete,
+  onSlotUpload,
 }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [slotUploading, setSlotUploading] = useState<Record<string, boolean>>({});
+  const [slotDone, setSlotDone] = useState<Record<string, boolean>>({});
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
   const latestDescHtml = useRef(descriptionHtml);
@@ -329,6 +341,19 @@ export const SocialCaseForm = ({
     } catch (_) {
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSlotUpload = async (prefix: string, file: File) => {
+    if (!onSlotUpload) return;
+    setSlotUploading((prev) => ({ ...prev, [prefix]: true }));
+    setSlotDone((prev) => ({ ...prev, [prefix]: false }));
+    try {
+      await onSlotUpload(prefix, file);
+      setSlotDone((prev) => ({ ...prev, [prefix]: true }));
+      setTimeout(() => setSlotDone((prev) => ({ ...prev, [prefix]: false })), 3000);
+    } finally {
+      setSlotUploading((prev) => ({ ...prev, [prefix]: false }));
     }
   };
 
@@ -650,6 +675,45 @@ export const SocialCaseForm = ({
                   onChange={(e) => update("observacionCierre", e.target.value)}
                 />
               </div>
+
+              {/* Botones de evidencia — solo en articulación */}
+              {isArticulacion && !isClosed && onSlotUpload && (
+                <div>
+                  <span className={cn(sectionHeadClass, "mb-2")}>Evidencia fotográfica</span>
+                  <div className="flex flex-wrap gap-2">
+                    {EVIDENCE_SLOTS.map((slot) => (
+                      <label
+                        key={slot.prefix}
+                        className={cn(
+                          "text-xs flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors",
+                          slotUploading[slot.prefix]
+                            ? "border-blue-300 bg-blue-50 text-blue-500 dark:bg-blue-900/20"
+                            : slotDone[slot.prefix]
+                              ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-900/20"
+                              : "text-custom-text-200 hover:text-custom-text-100 border-subtle bg-surface-2 hover:border-strong"
+                        )}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          disabled={slotUploading[slot.prefix]}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleSlotUpload(slot.prefix, file);
+                            e.target.value = "";
+                          }}
+                        />
+                        {slotUploading[slot.prefix]
+                          ? "Subiendo..."
+                          : slotDone[slot.prefix]
+                            ? `✓ ${slot.label}`
+                            : slot.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Botón resolver caso — solo en articulación */}
               {isArticulacion && !isClosed && mode === "view" && (

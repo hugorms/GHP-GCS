@@ -22,6 +22,7 @@ import {
   type AttachmentInfo,
   type StateFlowStep,
 } from "@/components/issues/social-case-report-pdf";
+import { SocialCaseFichaPDF, type FichaAttachment } from "@/components/issues/social-case-ficha-pdf";
 
 // ── Date preset helpers ──────────────────────────────────────────────────────
 
@@ -120,6 +121,8 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const [includeAttachments, setIncludeAttachments] = useState(true);
   const [openAfter, setOpenAfter] = useState(true);
   const [estadosFilter, setEstadosFilter] = useState<string[]>([]); // [] = Todos
+  const [selectedFichaId, setSelectedFichaId] = useState<string>("");
+  const [generatingFicha, setGeneratingFicha] = useState(false);
 
   const toggleEstadoModal = (estado: string) =>
     setEstadosFilter((prev) => (prev.includes(estado) ? prev.filter((e) => e !== estado) : [...prev, estado]));
@@ -156,6 +159,26 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     });
     return map;
   }, [states]);
+
+  // Mapa stateId → group para detectar casos resueltos
+  const stateGroups = useMemo(() => {
+    const map: Record<string, string> = {};
+    (states ?? []).forEach((s) => {
+      map[s.id] = s.group;
+    });
+    return map;
+  }, [states]);
+
+  // Casos resueltos (group === "completed") con datos parseados — para la ficha individual
+  const casosResueltos = useMemo(() => {
+    return allIssues
+      .filter((issue) => issue && stateGroups[issue.state_id ?? ""] === "completed")
+      .map((issue) => {
+        const d = extractFromHtml(issue.description_html ?? "");
+        const label = d?.nombre ? `${d.nombre}${d.cedula ? ` · ${d.cedula}` : ""}` : `GCS-${issue.sequence_id}`;
+        return { id: issue.id, label, sequenceId: issue.sequence_id };
+      });
+  }, [allIssues, stateGroups]);
 
   const { fromDate, toDate } = useMemo(() => {
     if (preset !== "all" && preset !== "custom") {
@@ -339,6 +362,115 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     } finally {
       setGenerating(false);
       setProgress(null);
+    }
+  };
+
+  // ── Ficha individual ────────────────────────────────────────────────────────
+
+  const handleDownloadFicha = async () => {
+    if (!selectedFichaId) return;
+    const issue = allIssues.find((i) => i.id === selectedFichaId);
+    if (!issue) return;
+
+    setGeneratingFicha(true);
+    try {
+      const ws = workspaceSlug?.toString() ?? "";
+      const pid = projectId?.toString() ?? "";
+      const projectName = projectDetails?.name ?? "Proyecto";
+      const generatedAtLabel = new Date().toLocaleDateString("es-VE");
+      const d = extractFromHtml(issue.description_html ?? "");
+      const photoUrlRaw = extractProfilePhotoFromHtml(issue.description_html ?? "");
+      const stateName = stateNames[issue.state_id ?? ""] ?? "Resuelto";
+      const assignees = (issue.assignee_ids ?? [])
+        .map((id: string) => memberRoot.getUserDetails(id)?.display_name || memberRoot.getUserDetails(id)?.first_name)
+        .filter(Boolean) as string[];
+      const responsable = assignees.length > 0 ? assignees.join(", ") : "Sin asignar";
+
+      // Resolver foto de perfil a base64
+      let resolvedPhotoUrl: string | null = null;
+      if (photoUrlRaw) {
+        try {
+          const raw = getFileURL(photoUrlRaw) ?? photoUrlRaw;
+          const apiUrl = raw.startsWith("http") ? raw : `${window.location.origin}${raw}`;
+          resolvedPhotoUrl = await fetchBase64WithAuth(apiUrl);
+        } catch {
+          resolvedPhotoUrl = null;
+        }
+      }
+
+      // Resolver adjuntos imagen como evidencia de entrega
+      const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp"]);
+      let fichaAttachments: FichaAttachment[] = [];
+      try {
+        const rawList = await attachmentService.getIssueAttachments(ws, pid, issue.id);
+        fichaAttachments = await Promise.all(
+          (rawList ?? []).map(async (a) => {
+            const nameExt = (a.attributes?.name ?? "").split(".").pop()?.toLowerCase() ?? "";
+            const urlExt = (a.asset_url ?? "").split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+            const ext = nameExt || urlExt;
+            const isImage = IMAGE_EXTS.has(ext);
+            if (isImage) {
+              try {
+                const url = getFileURL(a.asset_url) ?? a.asset_url;
+                const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url}`;
+                const base64 = await fetchBase64WithAuth(fullUrl);
+                return { name: a.attributes?.name ?? "archivo", isImage: true, base64 };
+              } catch {
+                return { name: a.attributes?.name ?? "archivo", isImage: false };
+              }
+            }
+            return { name: a.attributes?.name ?? "archivo", isImage: false };
+          })
+        );
+      } catch {
+        fichaAttachments = [];
+      }
+
+      const blob = await pdf(
+        <SocialCaseFichaPDF
+          data={
+            d ?? {
+              numeroCaso: "",
+              cedula: "",
+              nombre: "",
+              telefono: "",
+              direccion: "",
+              parroquia: "",
+              municipio: "",
+              entidad: "",
+              jornada: "",
+              referencia: "",
+              accionTomada: "",
+              resultado: "",
+              solicitante: "",
+              nombreBeneficiario: "",
+              cedulaBeneficiario: "",
+              observacionCierre: "",
+              fechaCierre: "",
+            }
+          }
+          projectName={projectName}
+          stateName={stateName}
+          sequenceId={issue.sequence_id}
+          responsable={responsable}
+          photoUrl={resolvedPhotoUrl}
+          attachments={fichaAttachments}
+          generatedAtLabel={generatedAtLabel}
+        />
+      ).toBlob();
+
+      const url = URL.createObjectURL(blob);
+      if (openAfter) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `ficha-gcs${issue.sequence_id}-${new Date().toISOString().split("T")[0]}.pdf`;
+        a.click();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } finally {
+      setGeneratingFicha(false);
     }
   };
 
@@ -583,8 +715,55 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           </div>
         )}
 
+        {/* ── FICHA INDIVIDUAL ─────────────────────────────────────────── */}
+        <div
+          className={cn(
+            "space-y-3 rounded-lg border p-4",
+            casosResueltos.length > 0 ? "border-green-500/40 bg-green-500/5" : "border-subtle bg-surface-2 opacity-60"
+          )}
+        >
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-13 font-medium text-secondary">Ficha técnica individual</p>
+              <p className="text-12 text-tertiary">
+                {casosResueltos.length > 0
+                  ? `${casosResueltos.length} caso${casosResueltos.length !== 1 ? "s" : ""} resuelto${casosResueltos.length !== 1 ? "s" : ""} disponible${casosResueltos.length !== 1 ? "s" : ""}`
+                  : "Sin casos resueltos en el proyecto"}
+              </p>
+            </div>
+          </div>
+
+          {casosResueltos.length > 0 && (
+            <div className="flex items-center gap-3">
+              <select
+                className="focus:border-accent-primary h-9 flex-1 rounded-md border border-subtle bg-surface-1 px-3 text-12 text-secondary focus:outline-none"
+                value={selectedFichaId}
+                onChange={(e) => setSelectedFichaId(e.target.value)}
+                disabled={generatingFicha || loadingIssues}
+              >
+                <option value="">— Seleccionar caso resuelto —</option>
+                {casosResueltos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleDownloadFicha}
+                disabled={!selectedFichaId || generatingFicha || loadingIssues}
+                loading={generatingFicha}
+              >
+                {!generatingFicha && <FileDown className="mr-2 size-4" />}
+                Generar ficha
+              </Button>
+            </div>
+          )}
+        </div>
+
         <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={generating}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={generating || generatingFicha}>
             Cancelar
           </Button>
           <Button

@@ -11,7 +11,7 @@ import type { EditorRefApi } from "@plane/editor";
 import { EFileAssetType } from "@plane/types";
 import type { TNameDescriptionLoader } from "@plane/types";
 // components
-import { getTextContent, getFileURL } from "@plane/utils";
+import { getTextContent } from "@plane/utils";
 // components
 import { DescriptionVersionsRoot } from "@/components/core/description-versions";
 import { DescriptionInput } from "@/components/editor/rich-text/description-input";
@@ -39,7 +39,6 @@ import {
   stripSocialCaseFromHtml,
   injectSocialCaseIntoHtml,
   extractFromHtml,
-  extractProfilePhotoFromHtml,
 } from "@/components/issues/social-case-form";
 import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
 import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
@@ -152,17 +151,6 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
           />
         )}
       </div>
-      {extractProfilePhotoFromHtml(issue.description_html ?? "") && (
-        <div className="flex justify-center py-2">
-          <div className="border-custom-border-200 shadow-sm h-32 w-24 overflow-hidden rounded-md border">
-            <img
-              src={getFileURL(extractProfilePhotoFromHtml(issue.description_html ?? "") ?? "") ?? ""}
-              alt="Foto de perfil"
-              className="h-full w-full object-cover"
-            />
-          </div>
-        </div>
-      )}
       <IssueTitleInput
         workspaceSlug={workspaceSlug}
         projectId={issue.project_id}
@@ -199,6 +187,11 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
           if (!issue.project_id) return;
           const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
           await attachmentService.uploadIssueAttachment(workspaceSlug, issue.project_id, issueId, prefixedFile);
+        }}
+        onPhotoUpload={async (file) => {
+          if (!issue.project_id) return "";
+          const att = await attachmentService.uploadIssueAttachment(workspaceSlug, issue.project_id, issueId, file);
+          return att.asset_url;
         }}
       />
 

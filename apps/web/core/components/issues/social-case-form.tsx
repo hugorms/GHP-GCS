@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@plane/propel/button";
-import { cn } from "@plane/utils";
+import { cn, getFileURL } from "@plane/utils";
 import { VENEZUELA_ESTADOS } from "./social-case-estados";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -45,6 +45,8 @@ type Props = {
   onSlotUpload?: (slotPrefix: string, file: File) => Promise<void>;
   /** Archivos ya subidos por slot al montar (prefix → nombre de archivo) */
   initialSlotFiles?: Record<string, string>;
+  /** Sube una nueva foto de perfil y devuelve la URL del asset */
+  onPhotoUpload?: (file: File) => Promise<string>;
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -228,6 +230,7 @@ export const SocialCaseForm = ({
   onComplete,
   onSlotUpload,
   initialSlotFiles = {},
+  onPhotoUpload,
 }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
@@ -237,6 +240,7 @@ export const SocialCaseForm = ({
   const [slotUploading, setSlotUploading] = useState<Record<string, boolean>>({});
   // prefix → nombre del archivo subido (persiste en sesión)
   const [slotFiles, setSlotFiles] = useState<Record<string, string>>(initialSlotFiles);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
   const latestDescHtml = useRef(descriptionHtml);
@@ -347,6 +351,18 @@ export const SocialCaseForm = ({
     }
   };
 
+  const handlePhotoUpload = async (file: File) => {
+    if (!onPhotoUpload || !onSave) return;
+    setPhotoUploading(true);
+    try {
+      const assetUrl = await onPhotoUpload(file);
+      const newHtml = injectProfilePhotoIntoHtml(latestDescHtml.current, assetUrl);
+      await onSave(newHtml);
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
   const handleSlotUpload = async (prefix: string, file: File) => {
     if (!onSlotUpload) return;
     setSlotUploading((prev) => ({ ...prev, [prefix]: true }));
@@ -365,9 +381,61 @@ export const SocialCaseForm = ({
 
   const fc = (editable: boolean) => cn(fieldBase, editable ? fieldEditable : fieldReadonly);
 
+  // Foto de perfil actual extraída del HTML
+  const currentPhotoUrl = mode === "view" ? extractProfilePhotoFromHtml(descriptionHtml) : null;
+  const photoDisplayUrl = currentPhotoUrl ? (getFileURL(currentPhotoUrl) ?? currentPhotoUrl) : null;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full">
+      {/* Foto de perfil — solo en modo view */}
+      {mode === "view" && (
+        <div className="flex justify-center py-2">
+          <div className="relative">
+            <div className="border-custom-border-200 shadow-sm h-32 w-24 overflow-hidden rounded-md border">
+              {photoDisplayUrl ? (
+                <img src={photoDisplayUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+              ) : (
+                <div className="bg-custom-background-90 flex h-full w-full items-center justify-center">
+                  <span className="text-xs text-custom-text-400 px-1 text-center">Sin foto</span>
+                </div>
+              )}
+            </div>
+            {onPhotoUpload && (
+              <label className="border-custom-border-200 bg-custom-background-100 shadow-sm hover:bg-custom-background-80 absolute -right-1 -bottom-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={photoUploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handlePhotoUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+                {photoUploading ? (
+                  <span className="text-custom-text-300 text-[9px]">...</span>
+                ) : (
+                  <svg
+                    className="text-custom-text-200 h-3 w-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z"
+                    />
+                  </svg>
+                )}
+              </label>
+            )}
+          </div>
+        </div>
+      )}
       {/* Cabecera */}
       <div className="flex items-center justify-between gap-3 py-1">
         <button

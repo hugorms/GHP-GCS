@@ -474,7 +474,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           attachments={fichaAttachments}
           generatedAtLabel={generatedAtLabel}
           logoUrl={fichaLogoUrl}
-          startDate={issue.start_date ?? null}
+          startDate={issue.start_date ?? issue.created_at?.slice(0, 10) ?? null}
         />
       ).toBlob();
 

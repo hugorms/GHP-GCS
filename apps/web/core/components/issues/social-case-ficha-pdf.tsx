@@ -254,13 +254,13 @@ export function SocialCaseFichaPDF({
         {/* ── ENCABEZADO ── */}
         <View style={S.header}>
           {/* Logo izquierdo */}
-          <View style={S.headerLogoBox}>
-            {logoUrl ? (
-              <Image src={logoUrl} style={S.headerLogoImg} />
-            ) : (
+          {logoUrl ? (
+            <Image src={logoUrl} style={{ width: 150, height: 50, objectFit: "contain" }} />
+          ) : (
+            <View style={S.headerLogoBox}>
               <Text style={{ fontSize: 6, color: C.gray500, textAlign: "center" }}>LOGO</Text>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* Centro: nombre organización + título */}
           <View style={S.headerCenter}>

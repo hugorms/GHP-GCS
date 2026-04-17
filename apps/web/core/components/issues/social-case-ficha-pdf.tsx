@@ -236,9 +236,9 @@ export function SocialCaseFichaPDF({
 
   // Las 4 columnas de foto: CI solicitante, CI beneficiario, CI participante, Entrega
   const fotoSlots = [
-    { label: "C.I. DEL SOLICITANTE", img: fotosEntrega[0] },
-    { label: "C.I. DEL BENEFICIARIO", img: fotosEntrega[1] },
-    { label: "C.I. DEL PARTICIPANTE", img: fotosEntrega[2] },
+    { label: "SOLICITUD", img: fotosEntrega[0] },
+    { label: "C.I. DEL SOLICITANTE", img: fotosEntrega[1] },
+    { label: "C.I. DEL BENEFICIARIO", img: fotosEntrega[2] },
     { label: "ENTREGA", img: fotosEntrega[3] },
   ];
 

@@ -43,6 +43,8 @@ type Props = {
   onComplete?: () => Promise<void>;
   /** Llamado al subir un archivo a un slot específico de evidencia */
   onSlotUpload?: (slotPrefix: string, file: File) => Promise<void>;
+  /** Archivos ya subidos por slot al montar (prefix → nombre de archivo) */
+  initialSlotFiles?: Record<string, string>;
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -225,6 +227,7 @@ export const SocialCaseForm = ({
   isArticulacion = false,
   onComplete,
   onSlotUpload,
+  initialSlotFiles = {},
 }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
@@ -232,7 +235,8 @@ export const SocialCaseForm = ({
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [slotUploading, setSlotUploading] = useState<Record<string, boolean>>({});
-  const [slotDone, setSlotDone] = useState<Record<string, boolean>>({});
+  // prefix → nombre del archivo subido (persiste en sesión)
+  const [slotFiles, setSlotFiles] = useState<Record<string, string>>(initialSlotFiles);
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
   const latestDescHtml = useRef(descriptionHtml);
@@ -346,11 +350,10 @@ export const SocialCaseForm = ({
   const handleSlotUpload = async (prefix: string, file: File) => {
     if (!onSlotUpload) return;
     setSlotUploading((prev) => ({ ...prev, [prefix]: true }));
-    setSlotDone((prev) => ({ ...prev, [prefix]: false }));
     try {
       await onSlotUpload(prefix, file);
-      setSlotDone((prev) => ({ ...prev, [prefix]: true }));
-      setTimeout(() => setSlotDone((prev) => ({ ...prev, [prefix]: false })), 3000);
+      // Guardar nombre permanentemente — sin timeout
+      setSlotFiles((prev) => ({ ...prev, [prefix]: file.name }));
     } finally {
       setSlotUploading((prev) => ({ ...prev, [prefix]: false }));
     }
@@ -680,36 +683,42 @@ export const SocialCaseForm = ({
                 <div>
                   <span className={cn(sectionHeadClass, "mb-2")}>Evidencia fotográfica</span>
                   <div className="flex flex-wrap gap-2">
-                    {EVIDENCE_SLOTS.map((slot) => (
-                      <label
-                        key={slot.prefix}
-                        className={cn(
-                          "text-xs flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors",
-                          slotUploading[slot.prefix]
-                            ? "border-blue-300 bg-blue-50 text-blue-500 dark:bg-blue-900/20"
-                            : slotDone[slot.prefix]
-                              ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-900/20"
-                              : "text-custom-text-200 hover:text-custom-text-100 border-subtle bg-surface-2 hover:border-strong"
-                        )}
-                      >
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          className="hidden"
-                          disabled={slotUploading[slot.prefix]}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleSlotUpload(slot.prefix, file);
-                            e.target.value = "";
-                          }}
-                        />
-                        {slotUploading[slot.prefix]
-                          ? "Subiendo..."
-                          : slotDone[slot.prefix]
-                            ? `✓ ${slot.label}`
-                            : slot.label}
-                      </label>
-                    ))}
+                    {EVIDENCE_SLOTS.map((slot) => {
+                      const uploaded = slotFiles[slot.prefix];
+                      const uploading = slotUploading[slot.prefix];
+                      return (
+                        <div key={slot.prefix} className="flex flex-col gap-1">
+                          <label
+                            className={cn(
+                              "text-xs flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors",
+                              uploading
+                                ? "border-blue-300 bg-blue-50 text-blue-500 dark:bg-blue-900/20"
+                                : uploaded
+                                  ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-900/20"
+                                  : "text-custom-text-200 hover:text-custom-text-100 border-subtle bg-surface-2 hover:border-strong"
+                            )}
+                          >
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              className="hidden"
+                              disabled={uploading}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleSlotUpload(slot.prefix, file);
+                                e.target.value = "";
+                              }}
+                            />
+                            {uploading ? "Subiendo..." : uploaded ? `✓ ${slot.label}` : slot.label}
+                          </label>
+                          {uploaded && (
+                            <span className="text-green-600 dark:text-green-400 max-w-[120px] truncate text-[10px]">
+                              {uploaded}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -72,6 +72,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const { getUserDetails } = useMember();
   const {
     issue: { getIssueById },
+    attachment: { getAttachmentsByIssueId, getAttachmentById },
     peekIssue,
   } = useIssueDetail();
   const { getProjectById } = useProject();
@@ -86,6 +87,14 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const { handleStateChange } = useSocialCaseStateChange({ workspaceSlug, projectId, issueId, issueOperations });
   const projectStates = getProjectStates(projectId);
   const completedStateId = projectStates?.find((s) => s.group === "completed")?.id;
+  const SLOT_PREFIXES = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
+  const initialSlotFiles = (getAttachmentsByIssueId(issueId) ?? []).reduce<Record<string, string>>((acc, id) => {
+    const att = getAttachmentById(id);
+    if (!att) return acc;
+    const prefix = SLOT_PREFIXES.find((p) => att.attributes.name.startsWith(p));
+    if (prefix) acc[prefix] = att.attributes.name;
+    return acc;
+  }, {});
   // debounced duplicate issues swr
   const { duplicateIssues } = useDebouncedDuplicateIssues(
     workspaceSlug,
@@ -181,6 +190,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
                 }
               : undefined
           }
+          initialSlotFiles={initialSlotFiles}
           onSlotUpload={async (slotPrefix, file) => {
             const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
             await attachmentService.uploadIssueAttachment(workspaceSlug, projectId, issueId, prefixedFile);

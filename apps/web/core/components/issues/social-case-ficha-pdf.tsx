@@ -344,15 +344,16 @@ export function SocialCaseFichaPDF({
                   </View>
                 );
               }
-              // Collage: múltiples fotos apiladas verticalmente
-              const imgHeight = Math.floor(160 / slot.imgs.length);
+              // Collage: grilla de 2 columnas, todas del mismo tamaño
+              const rows = Math.ceil(slot.imgs.length / 2);
+              const imgHeight = Math.floor(160 / rows);
               return (
-                <View key={slot.label} style={{ ...cellStyle, flexDirection: "column" }}>
+                <View key={slot.label} style={{ ...cellStyle, flexDirection: "row", flexWrap: "wrap", height: 160 }}>
                   {slot.imgs.map((img) => (
                     <Image
                       key={img.name}
                       src={img.base64 as string}
-                      style={{ width: "100%", height: imgHeight, objectFit: "contain" }}
+                      style={{ width: "50%", height: imgHeight, objectFit: "contain" }}
                     />
                   ))}
                 </View>

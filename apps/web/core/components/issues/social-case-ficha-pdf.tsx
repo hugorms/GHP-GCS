@@ -232,10 +232,15 @@ export function SocialCaseFichaPDF({
   logoUrl,
 }: SocialCaseFichaProps) {
   // Matching por prefijo de nombre de archivo
+  const KNOWN_PREFIXES = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
   const byPrefix = (prefix: string) => attachments.find((a) => a.isImage && a.base64 && a.name.startsWith(prefix));
+  // SOLICITUD: primer adjunto imagen sin prefijo reservado (subido con el botón genérico al crear el caso)
+  const solicitudImg = attachments.find(
+    (a) => a.isImage && a.base64 && !KNOWN_PREFIXES.some((p) => a.name.startsWith(p))
+  );
 
   const fotoSlots = [
-    { label: "SOLICITUD", img: byPrefix("[SOLICITUD]") },
+    { label: "SOLICITUD", img: solicitudImg },
     { label: "C.I. DEL SOLICITANTE", img: byPrefix("[CI_SOL]") },
     { label: "C.I. DEL BENEFICIARIO", img: byPrefix("[CI_BEN]") },
     { label: "ENTREGA", img: byPrefix("[ENTREGA]") },

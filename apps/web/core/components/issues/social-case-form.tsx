@@ -201,7 +201,6 @@ const fieldReadonly = "border-subtle bg-surface-1 text-primary cursor-default ou
 // ── Component ────────────────────────────────────────────────────────────────
 
 export const EVIDENCE_SLOTS = [
-  { prefix: "[SOLICITUD]", label: "Adj. Solicitud" },
   { prefix: "[CI_SOL]", label: "Adj. C.I. Solicitante" },
   { prefix: "[CI_BEN]", label: "Adj. C.I. Beneficiario" },
   { prefix: "[ENTREGA]", label: "Adj. Entrega" },

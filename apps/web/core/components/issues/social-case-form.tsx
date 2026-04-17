@@ -584,14 +584,14 @@ export const SocialCaseForm = ({
             <span className={sectionHeadClass}>Datos del caso</span>
             <div>
               <label htmlFor="sc-jornada" className={labelClass}>
-                Jornada
+                Actividad
               </label>
               <input
                 id="sc-jornada"
                 disabled={!isEditable}
                 autoCapitalize="sentences"
                 className={fc(isEditable)}
-                placeholder="Nombre de la jornada"
+                placeholder="Nombre de la actividad"
                 value={data.jornada}
                 onChange={(e) => update("jornada", e.target.value)}
               />

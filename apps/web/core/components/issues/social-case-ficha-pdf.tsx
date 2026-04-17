@@ -284,7 +284,7 @@ export function SocialCaseFichaPDF({
           <Row label="Beneficiario" value={data.nombreBeneficiario || data.nombre} />
           <Row label="C.I. Beneficiario" value={data.cedulaBeneficiario || data.cedula} />
           <Row label="Solicitud / Beneficio" value={data.resultado} />
-          <Row label="Actividad" value={data.referencia} />
+          <Row label="Actividad" value={data.jornada} />
           <Row label="Dirección" value={data.direccion} />
           <Row label="Acción tomada" value={data.accionTomada} />
           <Row label="Fecha de la actividad" value={data.fechaCierre} />

@@ -32,6 +32,7 @@ import { StateDropdown } from "@/components/dropdowns/state/dropdown";
 import { SidebarPropertyListItem } from "@/components/common/layout/sidebar/property-list-item";
 // helpers
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
+import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
 import { useMember } from "@/hooks/store/use-member";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
@@ -68,6 +69,7 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
   const issue = getIssueById(issueId);
   if (!issue) return <></>;
   const createdByDetails = getUserDetails(issue?.created_by);
+  const { handleStateChange } = useSocialCaseStateChange({ workspaceSlug, projectId, issueId, issueOperations });
   const projectDetails = getProjectById(issue.project_id);
   const isEstimateEnabled = projectDetails?.estimate;
   const stateDetails = getStateById(issue.state_id);
@@ -85,7 +87,7 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
         <SidebarPropertyListItem icon={StatePropertyIcon} label={t("common.state")}>
           <StateDropdown
             value={issue?.state_id}
-            onChange={(val) => issueOperations.update(workspaceSlug, projectId, issueId, { state_id: val })}
+            onChange={(val) => handleStateChange(val)}
             projectId={projectId}
             disabled={disabled}
             buttonVariant="transparent-with-text"

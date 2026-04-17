@@ -18,6 +18,8 @@ export type SocialCaseData = {
   referencia: string;
   accionTomada: string;
   resultado: string;
+  // Campos de proceso (se activan en "En proceso")
+  mismoBeneficiario: string; // "true" | ""
   // Campos de cierre (se activan al resolver el caso)
   solicitante: string;
   nombreBeneficiario: string;
@@ -37,6 +39,8 @@ type Props = {
   onDataChange?: (data: SocialCaseData) => void;
   /** Si true, el caso ya está resuelto — sección cierre en solo lectura */
   isClosed?: boolean;
+  /** Si true, el caso está en proceso — muestra sección de beneficiario y evidencia */
+  isEnProceso?: boolean;
   /** Si true, el caso está en articulación — muestra sección cierre editable y botón "Resolver caso" */
   isArticulacion?: boolean;
   /** Llamado al guardar la ficha completa desde articulación para transicionar a Resuelto */
@@ -64,6 +68,7 @@ const EMPTY: SocialCaseData = {
   referencia: "",
   accionTomada: "",
   resultado: "",
+  mismoBeneficiario: "",
   solicitante: "",
   nombreBeneficiario: "",
   cedulaBeneficiario: "",
@@ -96,6 +101,7 @@ const FIELDS: { key: keyof SocialCaseData; label: string }[] = [
   { key: "referencia", label: "Referencia" },
   { key: "accionTomada", label: "Accion tomada" },
   { key: "resultado", label: "Resultado" },
+  { key: "mismoBeneficiario", label: "Mismo beneficiario" },
   { key: "solicitante", label: "Solicitante" },
   { key: "nombreBeneficiario", label: "Nombre del beneficiario" },
   { key: "cedulaBeneficiario", label: "Cedula del beneficiario" },
@@ -207,7 +213,7 @@ const fieldReadonly = "border-subtle bg-surface-1 text-primary cursor-default ou
 export const EVIDENCE_SLOTS = [
   { prefix: "[CI_SOL]", label: "Adj. C.I. Solicitante" },
   { prefix: "[CI_BEN]", label: "Adj. C.I. Beneficiario" },
-  { prefix: "[ENTREGA]", label: "Adj. Entrega" },
+  { prefix: "[ENTREGA]", label: "Adj. Registro Fotográfico" },
 ] as const;
 
 const ARTICULACION_REQUIRED: (keyof SocialCaseData)[] = [
@@ -226,6 +232,7 @@ export const SocialCaseForm = ({
   onSave,
   onDataChange,
   isClosed = false,
+  isEnProceso = false,
   isArticulacion = false,
   onComplete,
   onSlotUpload,
@@ -377,7 +384,7 @@ export const SocialCaseForm = ({
 
   const articulacionComplete = isArticulacion ? ARTICULACION_REQUIRED.every((k) => data[k]?.trim()) : false;
 
-  const isEditable = mode === "create-no-save" || editing || isArticulacion;
+  const isEditable = mode === "create-no-save" || editing || isArticulacion || isEnProceso;
 
   const fc = (editable: boolean) => cn(fieldBase, editable ? fieldEditable : fieldReadonly);
 
@@ -647,7 +654,138 @@ export const SocialCaseForm = ({
             </div>
           </div>
 
-          {/* SECCION 4: CIERRE DEL CASO — visible en articulación (editable) o resuelto (lectura) */}
+          {/* SECCION 4: EN PROCESO — visible en "En proceso", articulación y resuelto */}
+          {(isEnProceso || isArticulacion || isClosed) && (
+            <div
+              className={cn(
+                "space-y-3 rounded-md border p-3",
+                isEnProceso && !isArticulacion && !isClosed
+                  ? "border-yellow-500/30 bg-yellow-500/5"
+                  : isClosed
+                    ? "border-green-500/30 bg-green-500/5"
+                    : "border-blue-500/30 bg-blue-500/5"
+              )}
+            >
+              <span className={cn(sectionHeadClass, "text-yellow-600 dark:text-yellow-400 mb-0")}>
+                Identificación del beneficiario
+              </span>
+
+              {/* Checkbox mismo beneficiario */}
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  disabled={isClosed}
+                  checked={data.mismoBeneficiario === "true"}
+                  onChange={(e) => update("mismoBeneficiario", e.target.checked ? "true" : "")}
+                  className="accent-custom-primary h-4 w-4 rounded border-subtle"
+                />
+                <span className="text-sm text-custom-text-200">El solicitante es el mismo beneficiario</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                <div>
+                  <label htmlFor="sc-nombre-beneficiario2" className={labelClass}>
+                    Nombre del beneficiario
+                  </label>
+                  <input
+                    id="sc-nombre-beneficiario2"
+                    disabled={isClosed}
+                    autoCapitalize="words"
+                    className={fc(!isClosed)}
+                    placeholder="Si es diferente al ciudadano"
+                    value={data.nombreBeneficiario}
+                    onChange={(e) => update("nombreBeneficiario", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="sc-cedula-beneficiario2" className={labelClass}>
+                    Cédula del beneficiario
+                  </label>
+                  <input
+                    id="sc-cedula-beneficiario2"
+                    disabled={isClosed}
+                    className={fc(!isClosed)}
+                    placeholder="V-00.000.000"
+                    value={data.cedulaBeneficiario}
+                    onChange={(e) => update("cedulaBeneficiario", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Slots de evidencia */}
+              {onSlotUpload && !isClosed && (
+                <div>
+                  <span className={cn(sectionHeadClass, "mb-2")}>Evidencia fotográfica</span>
+                  <div className="flex flex-wrap gap-2">
+                    {EVIDENCE_SLOTS.filter(
+                      (slot) => slot.prefix !== "[CI_SOL]" || data.mismoBeneficiario !== "true"
+                    ).map((slot) => {
+                      const isRegistro = slot.prefix === "[ENTREGA]";
+                      const uploaded = slotFiles[slot.prefix];
+                      const uploading = slotUploading[slot.prefix];
+                      // Para REGISTRO: contar cuántas fotos hay (busca key con prefijo [ENTREGA]_N)
+                      const registroCount = isRegistro
+                        ? Object.keys(slotFiles).filter((k) => k.startsWith("[ENTREGA]")).length
+                        : 0;
+                      const displayLabel = isRegistro
+                        ? registroCount > 0
+                          ? `✓ ${slot.label} (${registroCount})`
+                          : slot.label
+                        : uploaded
+                          ? `✓ ${slot.label}`
+                          : slot.label;
+                      return (
+                        <div key={slot.prefix} className="flex flex-col gap-1">
+                          <label
+                            className={cn(
+                              "text-xs flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors",
+                              uploading
+                                ? "border-blue-300 bg-blue-50 text-blue-500 dark:bg-blue-900/20"
+                                : (isRegistro ? registroCount > 0 : !!uploaded)
+                                  ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-900/20"
+                                  : "text-custom-text-200 hover:text-custom-text-100 border-subtle bg-surface-2 hover:border-strong"
+                            )}
+                          >
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              className="hidden"
+                              disabled={uploading}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                if (isRegistro) {
+                                  // Prefijo único por contador para permitir múltiples
+                                  const count = Object.keys(slotFiles).filter((k) => k.startsWith("[ENTREGA]")).length;
+                                  const uniquePrefix = `[ENTREGA]_${count + 1}`;
+                                  handleSlotUpload(uniquePrefix, file);
+                                } else {
+                                  handleSlotUpload(slot.prefix, file);
+                                }
+                                e.target.value = "";
+                              }}
+                            />
+                            {uploading ? "Subiendo..." : displayLabel}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Guardar cambios en modo En proceso */}
+              {isEnProceso && !isArticulacion && !isClosed && mode === "view" && (
+                <div className="flex justify-end pt-1">
+                  <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
+                    {saved ? "Guardado" : "Guardar"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECCION 5: CIERRE DEL CASO — visible en articulación (editable) o resuelto (lectura) */}
           {(isClosed || isArticulacion) && (
             <div
               className={cn(
@@ -703,33 +841,6 @@ export const SocialCaseForm = ({
                     />
                   </div>
                 )}
-                <div>
-                  <label htmlFor="sc-nombre-beneficiario" className={labelClass}>
-                    Nombre del beneficiario
-                  </label>
-                  <input
-                    id="sc-nombre-beneficiario"
-                    disabled={!isEditable}
-                    autoCapitalize="words"
-                    className={fc(isEditable)}
-                    placeholder="Si es diferente al ciudadano"
-                    value={data.nombreBeneficiario}
-                    onChange={(e) => update("nombreBeneficiario", e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="sc-cedula-beneficiario" className={labelClass}>
-                    Cédula del beneficiario
-                  </label>
-                  <input
-                    id="sc-cedula-beneficiario"
-                    disabled={!isEditable}
-                    className={fc(isEditable)}
-                    placeholder="V-00.000.000"
-                    value={data.cedulaBeneficiario}
-                    onChange={(e) => update("cedulaBeneficiario", e.target.value)}
-                  />
-                </div>
               </div>
               <div>
                 <label htmlFor="sc-obs-cierre" className={labelClass}>
@@ -745,51 +856,6 @@ export const SocialCaseForm = ({
                   onChange={(e) => update("observacionCierre", e.target.value)}
                 />
               </div>
-
-              {/* Botones de evidencia — solo en articulación */}
-              {isArticulacion && !isClosed && onSlotUpload && (
-                <div>
-                  <span className={cn(sectionHeadClass, "mb-2")}>Evidencia fotográfica</span>
-                  <div className="flex flex-wrap gap-2">
-                    {EVIDENCE_SLOTS.map((slot) => {
-                      const uploaded = slotFiles[slot.prefix];
-                      const uploading = slotUploading[slot.prefix];
-                      return (
-                        <div key={slot.prefix} className="flex flex-col gap-1">
-                          <label
-                            className={cn(
-                              "text-xs flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors",
-                              uploading
-                                ? "border-blue-300 bg-blue-50 text-blue-500 dark:bg-blue-900/20"
-                                : uploaded
-                                  ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-900/20"
-                                  : "text-custom-text-200 hover:text-custom-text-100 border-subtle bg-surface-2 hover:border-strong"
-                            )}
-                          >
-                            <input
-                              type="file"
-                              accept="image/*,.pdf"
-                              className="hidden"
-                              disabled={uploading}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) handleSlotUpload(slot.prefix, file);
-                                e.target.value = "";
-                              }}
-                            />
-                            {uploading ? "Subiendo..." : uploaded ? `✓ ${slot.label}` : slot.label}
-                          </label>
-                          {uploaded && (
-                            <span className="text-green-600 dark:text-green-400 max-w-[120px] truncate text-[10px]">
-                              {uploaded}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Botón resolver caso — solo en articulación */}
               {isArticulacion && !isClosed && mode === "view" && (

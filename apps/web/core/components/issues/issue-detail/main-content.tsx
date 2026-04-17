@@ -83,6 +83,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const currentState = issue?.state_id ? getStateById(issue.state_id) : undefined;
   const isClosed = currentState?.group === "completed";
   const isArticulacion = Boolean(currentState?.name?.toLowerCase().includes("articulaci"));
+  const isEnProceso = Boolean(currentState?.name?.toLowerCase().includes("proceso"));
   const { handleStateChange } = useSocialCaseStateChange({ workspaceSlug, projectId, issueId, issueOperations });
   const projectStates = getProjectStates(projectId);
   const completedStateId = projectStates?.find((s) => s.group === "completed")?.id;
@@ -91,7 +92,14 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
     const att = getAttachmentById(id);
     if (!att) return acc;
     const prefix = SLOT_PREFIXES.find((p) => att.attributes.name.startsWith(p));
-    if (prefix) acc[prefix] = att.attributes.name;
+    if (!prefix) return acc;
+    if (prefix === "[ENTREGA]") {
+      // Múltiples adjuntos de registro fotográfico — clave única por índice
+      const count = Object.keys(acc).filter((k) => k.startsWith("[ENTREGA]")).length;
+      acc[`[ENTREGA]_${count + 1}`] = att.attributes.name;
+    } else {
+      acc[prefix] = att.attributes.name;
+    }
     return acc;
   }, {});
   // debounced duplicate issues swr
@@ -164,6 +172,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           mode="view"
           descriptionHtml={issue.description_html ?? ""}
           isClosed={isClosed}
+          isEnProceso={isEnProceso}
           isArticulacion={isArticulacion}
           onSave={async (newHtml) => {
             if (!workspaceSlug || !issue.project_id) return;

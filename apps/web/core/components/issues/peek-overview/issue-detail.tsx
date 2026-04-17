@@ -91,6 +91,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
   const currentState = issue?.state_id ? getStateById(issue.state_id) : undefined;
   const isClosed = currentState?.group === "completed";
   const isArticulacion = Boolean(currentState?.name?.toLowerCase().includes("articulaci"));
+  const isEnProceso = Boolean(currentState?.name?.toLowerCase().includes("proceso"));
   const projectStates = issue?.project_id ? getProjectStates(issue.project_id) : undefined;
   const completedStateId = projectStates?.find((s) => s.group === "completed")?.id;
   const { handleStateChange } = useSocialCaseStateChange({
@@ -104,7 +105,13 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
     const att = getAttachmentById(id);
     if (!att) return acc;
     const prefix = SLOT_PREFIXES.find((p) => att.attributes.name.startsWith(p));
-    if (prefix) acc[prefix] = att.attributes.name;
+    if (!prefix) return acc;
+    if (prefix === "[ENTREGA]") {
+      const count = Object.keys(acc).filter((k) => k.startsWith("[ENTREGA]")).length;
+      acc[`[ENTREGA]_${count + 1}`] = att.attributes.name;
+    } else {
+      acc[prefix] = att.attributes.name;
+    }
     return acc;
   }, {});
   // debounced duplicate issues swr
@@ -168,6 +175,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         mode="view"
         descriptionHtml={issue.description_html ?? ""}
         isClosed={isClosed}
+        isEnProceso={isEnProceso}
         isArticulacion={isArticulacion}
         onSave={async (newHtml) => {
           if (!workspaceSlug || !issue.project_id) return;

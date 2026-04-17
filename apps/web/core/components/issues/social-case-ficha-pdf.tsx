@@ -243,16 +243,24 @@ export function SocialCaseFichaPDF({
   // Matching por prefijo de nombre de archivo
   const KNOWN_PREFIXES = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
   const byPrefix = (prefix: string) => attachments.find((a) => a.isImage && a.base64 && a.name.startsWith(prefix));
-  // SOLICITUD: primer adjunto imagen sin prefijo reservado (subido con el botón genérico al crear el caso)
+  // SOLICITUD: primer adjunto imagen sin prefijo reservado
   const solicitudImg = attachments.find(
     (a) => a.isImage && a.base64 && !KNOWN_PREFIXES.some((p) => a.name.startsWith(p))
   );
+  // REGISTRO FOTOGRÁFICO: todos los adjuntos con prefijo [ENTREGA]
+  const registroImgs = attachments.filter((a) => a.isImage && a.base64 && a.name.startsWith("[ENTREGA]"));
 
-  const fotoSlots = [
-    { label: "SOLICITUD", img: solicitudImg },
-    { label: "C.I. DEL SOLICITANTE", img: byPrefix("[CI_SOL]") },
-    { label: "C.I. DEL BENEFICIARIO", img: byPrefix("[CI_BEN]") },
-    { label: "ENTREGA", img: byPrefix("[ENTREGA]") },
+  // Si mismoBeneficiario="true" → 3 columnas (sin C.I. SOLICITANTE)
+  const mismoBeneficiario = data.mismoBeneficiario === "true";
+
+  type FotoSlot = { label: string; imgs: (typeof attachments)[number][] };
+  const fotoSlots: FotoSlot[] = [
+    { label: "SOLICITUD", imgs: solicitudImg ? [solicitudImg] : [] },
+    ...(mismoBeneficiario
+      ? []
+      : [{ label: "C.I. DEL SOLICITANTE", imgs: byPrefix("[CI_SOL]") ? [byPrefix("[CI_SOL]")!] : [] }]),
+    { label: "C.I. DEL BENEFICIARIO", imgs: byPrefix("[CI_BEN]") ? [byPrefix("[CI_BEN]")!] : [] },
+    { label: "REGISTRO FOTOGRÁFICO", imgs: registroImgs },
   ];
 
   const numeroCaso = data.numeroCaso ? `#${data.numeroCaso}` : `GCS-${sequenceId}`;
@@ -320,15 +328,36 @@ export function SocialCaseFichaPDF({
 
           {/* Celdas de imagen */}
           <View style={S.photoTableBody}>
-            {fotoSlots.map((slot, i) => (
-              <View key={slot.label} style={i < fotoSlots.length - 1 ? S.photoCell : S.photoCellLast}>
-                {slot.img ? (
-                  <Image src={slot.img.base64 as string} style={S.photoCellImg} />
-                ) : (
-                  <Text style={S.photoCellPlaceholderText}>Sin{"\n"}imagen</Text>
-                )}
-              </View>
-            ))}
+            {fotoSlots.map((slot, i) => {
+              const cellStyle = i < fotoSlots.length - 1 ? S.photoCell : S.photoCellLast;
+              if (slot.imgs.length === 0) {
+                return (
+                  <View key={slot.label} style={cellStyle}>
+                    <Text style={S.photoCellPlaceholderText}>Sin{"\n"}imagen</Text>
+                  </View>
+                );
+              }
+              if (slot.imgs.length === 1) {
+                return (
+                  <View key={slot.label} style={cellStyle}>
+                    <Image src={slot.imgs[0].base64 as string} style={S.photoCellImg} />
+                  </View>
+                );
+              }
+              // Collage: múltiples fotos apiladas verticalmente
+              const imgHeight = Math.floor(160 / slot.imgs.length);
+              return (
+                <View key={slot.label} style={{ ...cellStyle, flexDirection: "column" }}>
+                  {slot.imgs.map((img) => (
+                    <Image
+                      key={img.name}
+                      src={img.base64 as string}
+                      style={{ width: "100%", height: imgHeight, objectFit: "contain" }}
+                    />
+                  ))}
+                </View>
+              );
+            })}
           </View>
         </View>
 

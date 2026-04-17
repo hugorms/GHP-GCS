@@ -18,6 +18,7 @@ import { DescriptionInput } from "@/components/editor/rich-text/description-inpu
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useMember } from "@/hooks/store/use-member";
 import { useProject } from "@/hooks/store/use-project";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import { useUser } from "@/hooks/store/user";
 import useReloadConfirmations from "@/hooks/use-reload-confirmation";
 import useSize from "@/hooks/use-window-size";
@@ -70,10 +71,12 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
     peekIssue,
   } = useIssueDetail();
   const { getProjectById } = useProject();
+  const { getStateById } = useProjectState();
   const { setShowAlert } = useReloadConfirmations(isSubmitting === "submitting");
   // derived values
   const projectDetails = getProjectById(projectId);
   const issue = issueId ? getIssueById(issueId) : undefined;
+  const isClosed = issue?.state_id ? getStateById(issue.state_id)?.group === "completed" : false;
   // debounced duplicate issues swr
   const { duplicateIssues } = useDebouncedDuplicateIssues(
     workspaceSlug,
@@ -154,6 +157,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           issueId={issue.id}
           mode="view"
           descriptionHtml={issue.description_html ?? ""}
+          isClosed={isClosed}
           onSave={async (newHtml) => {
             if (!workspaceSlug || !issue.project_id) return;
             await issueOperations.update(workspaceSlug.toString(), issue.project_id, issue.id, {

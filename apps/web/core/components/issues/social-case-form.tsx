@@ -18,6 +18,12 @@ export type SocialCaseData = {
   referencia: string;
   accionTomada: string;
   resultado: string;
+  // Campos de cierre (se activan al resolver el caso)
+  solicitante: string;
+  nombreBeneficiario: string;
+  cedulaBeneficiario: string;
+  observacionCierre: string;
+  fechaCierre: string;
 };
 
 type Props = {
@@ -29,6 +35,8 @@ type Props = {
   onSave?: (newDescriptionHtml: string) => Promise<void>;
   /** Callback llamado en tiempo real con los datos del formulario (modo create-no-save) */
   onDataChange?: (data: SocialCaseData) => void;
+  /** Si true, muestra y habilita la sección de cierre del caso */
+  isClosed?: boolean;
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -46,6 +54,11 @@ const EMPTY: SocialCaseData = {
   referencia: "",
   accionTomada: "",
   resultado: "",
+  solicitante: "",
+  nombreBeneficiario: "",
+  cedulaBeneficiario: "",
+  observacionCierre: "",
+  fechaCierre: "",
 };
 
 export const PENDING_KEY = "social_case_pending";
@@ -73,6 +86,11 @@ const FIELDS: { key: keyof SocialCaseData; label: string }[] = [
   { key: "referencia", label: "Referencia" },
   { key: "accionTomada", label: "Accion tomada" },
   { key: "resultado", label: "Resultado" },
+  { key: "solicitante", label: "Solicitante" },
+  { key: "nombreBeneficiario", label: "Nombre del beneficiario" },
+  { key: "cedulaBeneficiario", label: "Cedula del beneficiario" },
+  { key: "observacionCierre", label: "Observacion de cierre" },
+  { key: "fechaCierre", label: "Fecha de cierre" },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -176,7 +194,14 @@ const fieldReadonly = "border-subtle bg-surface-1 text-primary cursor-default ou
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, onDataChange }: Props) => {
+export const SocialCaseForm = ({
+  issueId,
+  mode,
+  descriptionHtml = "",
+  onSave,
+  onDataChange,
+  isClosed = false,
+}: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -495,6 +520,83 @@ export const SocialCaseForm = ({ issueId, mode, descriptionHtml = "", onSave, on
               </div>
             </div>
           </div>
+
+          {/* SECCION 4: CIERRE DEL CASO — solo visible cuando el caso está resuelto */}
+          {isClosed && (
+            <div className="border-green-500/30 bg-green-500/5 space-y-3 rounded-md border p-3">
+              <span className={cn(sectionHeadClass, "text-green-600 dark:text-green-400")}>Cierre del caso</span>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                <div>
+                  <label htmlFor="sc-solicitante" className={labelClass}>
+                    Solicitante
+                  </label>
+                  <input
+                    id="sc-solicitante"
+                    disabled={!isEditable}
+                    autoCapitalize="words"
+                    className={fc(isEditable)}
+                    placeholder="Nombre del solicitante"
+                    value={data.solicitante}
+                    onChange={(e) => update("solicitante", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="sc-fecha-cierre" className={labelClass}>
+                    Fecha de cierre
+                  </label>
+                  <input
+                    id="sc-fecha-cierre"
+                    type="date"
+                    disabled={!isEditable}
+                    className={fc(isEditable)}
+                    value={data.fechaCierre}
+                    onChange={(e) => update("fechaCierre", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="sc-nombre-beneficiario" className={labelClass}>
+                    Nombre del beneficiario
+                  </label>
+                  <input
+                    id="sc-nombre-beneficiario"
+                    disabled={!isEditable}
+                    autoCapitalize="words"
+                    className={fc(isEditable)}
+                    placeholder="Si es diferente al ciudadano"
+                    value={data.nombreBeneficiario}
+                    onChange={(e) => update("nombreBeneficiario", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="sc-cedula-beneficiario" className={labelClass}>
+                    Cédula del beneficiario
+                  </label>
+                  <input
+                    id="sc-cedula-beneficiario"
+                    disabled={!isEditable}
+                    className={fc(isEditable)}
+                    placeholder="V-00.000.000"
+                    value={data.cedulaBeneficiario}
+                    onChange={(e) => update("cedulaBeneficiario", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="sc-obs-cierre" className={labelClass}>
+                  Observación de cierre
+                </label>
+                <textarea
+                  id="sc-obs-cierre"
+                  disabled={!isEditable}
+                  autoCapitalize="sentences"
+                  className={cn(fc(isEditable), "min-h-[56px] resize-y leading-relaxed")}
+                  placeholder="Notas adicionales sobre el cierre del caso..."
+                  value={data.observacionCierre}
+                  onChange={(e) => update("observacionCierre", e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           {/* BOTONES — solo en modo view */}
           {mode === "view" && (

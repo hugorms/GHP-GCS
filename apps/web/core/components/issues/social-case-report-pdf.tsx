@@ -236,6 +236,7 @@ type Props = {
   includePhotos?: boolean;
   includeDetails?: boolean;
   includeAttachments?: boolean;
+  logoUrl?: string | null;
 };
 
 // ── Timeline vertical de estados ─────────────────────────────────────────────
@@ -298,6 +299,7 @@ export const SocialCaseReportPDF = ({
   includePhotos = true,
   includeDetails = false,
   includeAttachments = false,
+  logoUrl,
 }: Props) => {
   const total = rows.length;
   const beneficiados = rows.filter((r) => r.beneficiado).length;
@@ -308,6 +310,11 @@ export const SocialCaseReportPDF = ({
       {/* ══ PORTADA ══════════════════════════════════════════════════════════ */}
       {includeCover && (
         <Page size="A4" style={[S.page, S.coverPage]}>
+          {logoUrl && (
+            <View style={{ alignItems: "center", marginBottom: 16 }}>
+              <Image src={logoUrl} style={{ width: 180, height: 60, objectFit: "contain" }} />
+            </View>
+          )}
           <Text style={S.coverTitle}>{projectName}</Text>
           <Text style={S.coverSub}>Reporte de Casos Sociales · {dateRange}</Text>
 

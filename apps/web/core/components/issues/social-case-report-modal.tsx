@@ -272,6 +272,14 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const generatedAtLabel = new Date().toLocaleDateString("es-VE");
       const projectName = projectDetails?.name ?? "Proyecto";
 
+      // Logo institucional
+      let logoUrl: string | null = null;
+      try {
+        logoUrl = await urlToBase64(`${window.location.origin}/venezuela-logo.png`);
+      } catch {
+        logoUrl = null;
+      }
+
       const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp"]);
       const ws = workspaceSlug?.toString() ?? "";
       const pid = projectId?.toString() ?? "";
@@ -340,6 +348,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           includePhotos={includePhotos}
           includeDetails={includeDetails}
           includeAttachments={includeAttachments}
+          logoUrl={logoUrl}
         />
       ).toBlob();
 
@@ -378,6 +387,14 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const pid = projectId?.toString() ?? "";
       const projectName = projectDetails?.name ?? "Proyecto";
       const generatedAtLabel = new Date().toLocaleDateString("es-VE");
+
+      // Logo institucional
+      let fichaLogoUrl: string | null = null;
+      try {
+        fichaLogoUrl = await urlToBase64(`${window.location.origin}/venezuela-logo.png`);
+      } catch {
+        fichaLogoUrl = null;
+      }
       const d = extractFromHtml(issue.description_html ?? "");
       const photoUrlRaw = extractProfilePhotoFromHtml(issue.description_html ?? "");
       const stateName = stateNames[issue.state_id ?? ""] ?? "Resuelto";
@@ -456,6 +473,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           photoUrl={resolvedPhotoUrl}
           attachments={fichaAttachments}
           generatedAtLabel={generatedAtLabel}
+          logoUrl={fichaLogoUrl}
         />
       ).toBlob();
 

@@ -201,6 +201,7 @@ export type SocialCaseFichaProps = {
   attachments?: FichaAttachment[];
   generatedAtLabel: string;
   logoUrl?: string | null;
+  startDate?: string | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -237,6 +238,7 @@ export function SocialCaseFichaPDF({
   attachments = [],
   generatedAtLabel,
   logoUrl,
+  startDate,
 }: SocialCaseFichaProps) {
   // Matching por prefijo de nombre de archivo
   const KNOWN_PREFIXES = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
@@ -292,7 +294,7 @@ export function SocialCaseFichaPDF({
           <Row label="C.I. Beneficiario" value={data.cedulaBeneficiario || data.cedula} />
           <Row label="Solicitud / Beneficio" value={data.resultado} />
           <Row label="Actividad" value={data.jornada} />
-          <Row label="Fecha de actividad" value={formatDate(data.fechaCierre)} />
+          <Row label="Fecha de actividad" value={formatDate(startDate ?? "")} />
           <Row label="Dirección de habitación" value={data.direccion} />
           <Row label="Acción tomada" value={data.accionTomada} />
           <Row

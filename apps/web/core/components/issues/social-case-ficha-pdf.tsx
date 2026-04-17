@@ -265,17 +265,17 @@ export function SocialCaseFichaPDF({
           {/* Centro: nombre organización + título */}
           <View style={S.headerCenter}>
             <Text style={S.headerOrgName}>{projectName}</Text>
-            <Text style={S.headerTitle}>Ficha Técnica</Text>
+            <Text style={S.headerTitle}>Ficha Resumen</Text>
           </View>
 
           {/* Logo derecho (foto perfil ciudadano) */}
-          <View style={S.headerLogoBox}>
-            {photoUrl ? (
-              <Image src={photoUrl} style={S.headerLogoImg} />
-            ) : (
+          {photoUrl ? (
+            <Image src={photoUrl} style={{ width: 60, height: 40, objectFit: "contain" }} />
+          ) : (
+            <View style={S.headerLogoBox}>
               <Text style={{ fontSize: 6, color: C.gray500, textAlign: "center" }}>SIN{"\n"}FOTO</Text>
-            )}
-          </View>
+            </View>
+          )}
         </View>
 
         {/* ── TABLA DE CAMPOS ── */}
@@ -284,8 +284,7 @@ export function SocialCaseFichaPDF({
           <Row label="Beneficiario" value={data.nombreBeneficiario || data.nombre} />
           <Row label="C.I. Beneficiario" value={data.cedulaBeneficiario || data.cedula} />
           <Row label="Solicitud / Beneficio" value={data.resultado} />
-          <Row label="Origen de la solicitud" value={data.referencia} />
-          <Row label="Municipio / Parroquia" value={[data.municipio, data.parroquia].filter(Boolean).join(" / ")} />
+          <Row label="Actividad" value={data.referencia} />
           <Row label="Dirección" value={data.direccion} />
           <Row label="Acción tomada" value={data.accionTomada} />
           <Row label="Fecha de la actividad" value={data.fechaCierre} />

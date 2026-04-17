@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { ListLayoutIcon, TimelineLayoutIcon } from "@plane/propel/icons";
+import { BoardLayoutIcon, ListLayoutIcon, TimelineLayoutIcon } from "@plane/propel/icons";
 import type { IBaseLayoutConfig } from "@plane/types";
 
 export const BASE_LAYOUTS: IBaseLayoutConfig[] = [
@@ -13,7 +13,11 @@ export const BASE_LAYOUTS: IBaseLayoutConfig[] = [
     icon: ListLayoutIcon,
     label: "List Layout",
   },
-
+  {
+    key: "kanban",
+    icon: BoardLayoutIcon,
+    label: "Board Layout",
+  },
   {
     key: "gantt",
     icon: TimelineLayoutIcon,

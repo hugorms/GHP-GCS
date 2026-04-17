@@ -205,6 +205,13 @@ export type SocialCaseFichaProps = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Convierte YYYY-MM-DD → DD-MM-YYYY. Devuelve el original si no coincide el patrón. */
+function formatDate(date: string): string {
+  if (!date) return "";
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : date;
+}
+
 function Row({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
   return (
     <View style={last ? S.tableRowLast : S.tableRow}>
@@ -285,10 +292,13 @@ export function SocialCaseFichaPDF({
           <Row label="C.I. Beneficiario" value={data.cedulaBeneficiario || data.cedula} />
           <Row label="Solicitud / Beneficio" value={data.resultado} />
           <Row label="Actividad" value={data.jornada} />
-          <Row label="Dirección" value={data.direccion} />
+          <Row label="Fecha de actividad" value={formatDate(data.fechaCierre)} />
+          <Row label="Dirección de habitación" value={data.direccion} />
           <Row label="Acción tomada" value={data.accionTomada} />
-          <Row label="Fecha de la actividad" value={data.fechaCierre} />
-          <Row label="Estado del caso" value={stateName} />
+          <Row
+            label="Estado del caso"
+            value={data.fechaCierre ? `${stateName} (${formatDate(data.fechaCierre)})` : stateName}
+          />
           <Row label="Número de caso" value={numeroCaso} last />
         </View>
 

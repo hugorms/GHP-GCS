@@ -515,7 +515,7 @@ export const SocialCaseForm = ({
               </div>
               <div>
                 <label htmlFor="sc-direccion" className={labelClass}>
-                  Direccion
+                  Dirección de habitación
                 </label>
                 <input
                   id="sc-direccion"

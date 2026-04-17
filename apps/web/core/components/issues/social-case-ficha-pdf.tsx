@@ -225,7 +225,7 @@ export function SocialCaseFichaPDF({
   projectName,
   stateName,
   sequenceId,
-  responsable,
+  responsable: _responsable,
   photoUrl,
   attachments = [],
   generatedAtLabel,
@@ -287,9 +287,9 @@ export function SocialCaseFichaPDF({
           <Row label="Origen de la solicitud" value={data.referencia} />
           <Row label="Municipio / Parroquia" value={[data.municipio, data.parroquia].filter(Boolean).join(" / ")} />
           <Row label="Dirección" value={data.direccion} />
+          <Row label="Acción tomada" value={data.accionTomada} />
           <Row label="Fecha de la actividad" value={data.fechaCierre} />
           <Row label="Estado del caso" value={stateName} />
-          <Row label="Responsable" value={responsable} />
           <Row label="Número de caso" value={numeroCaso} last />
         </View>
 

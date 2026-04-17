@@ -142,7 +142,7 @@ const S = StyleSheet.create({
   },
   photoCell: {
     flex: 1,
-    height: 110,
+    height: 160,
     borderRight: `1px solid ${C.border}`,
     justifyContent: "center",
     alignItems: "center",
@@ -150,15 +150,15 @@ const S = StyleSheet.create({
   },
   photoCellLast: {
     flex: 1,
-    height: 110,
+    height: 160,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: C.gray100,
   },
   photoCellImg: {
     width: "100%",
-    height: 110,
-    objectFit: "cover",
+    height: 160,
+    objectFit: "contain",
   },
   photoCellPlaceholderText: {
     fontSize: 7,

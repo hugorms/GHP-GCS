@@ -68,7 +68,7 @@ const EMPTY: SocialCaseData = {
   referencia: "",
   accionTomada: "",
   resultado: "",
-  mismoBeneficiario: "",
+  mismoBeneficiario: "true",
   solicitante: "",
   nombreBeneficiario: "",
   cedulaBeneficiario: "",
@@ -305,7 +305,7 @@ export const SocialCaseForm = ({
   }, [issueId, mode, descriptionHtml, editing]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const NO_CAP = new Set<keyof SocialCaseData>(["numeroCaso", "cedula", "telefono"]);
+  const NO_CAP = new Set<keyof SocialCaseData>(["numeroCaso", "cedula", "telefono", "mismoBeneficiario"]);
   const TITLE_CAP = new Set<keyof SocialCaseData>(["nombre"]);
 
   const capFirst = (f: keyof SocialCaseData, v: string) => {
@@ -670,16 +670,18 @@ export const SocialCaseForm = ({
                 Identificación del beneficiario
               </span>
 
-              {/* Checkbox mismo beneficiario */}
+              {/* Checkbox: solicitante diferente */}
               <label className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   disabled={isClosed}
-                  checked={data.mismoBeneficiario === "true"}
-                  onChange={(e) => update("mismoBeneficiario", e.target.checked ? "true" : "")}
+                  checked={data.mismoBeneficiario !== "true"}
+                  onChange={(e) => update("mismoBeneficiario", e.target.checked ? "" : "true")}
                   className="accent-custom-primary h-4 w-4 rounded border-subtle"
                 />
-                <span className="text-sm text-custom-text-200">El solicitante es el mismo beneficiario</span>
+                <span className="text-sm text-custom-text-200">
+                  El solicitante es una persona diferente al beneficiario
+                </span>
               </label>
 
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
@@ -718,7 +720,7 @@ export const SocialCaseForm = ({
                   <span className={cn(sectionHeadClass, "mb-2")}>Evidencia fotográfica</span>
                   <div className="flex flex-wrap gap-2">
                     {EVIDENCE_SLOTS.filter(
-                      (slot) => slot.prefix !== "[CI_SOL]" || data.mismoBeneficiario !== "true"
+                      (slot) => slot.prefix !== "[CI_SOL]" || data.mismoBeneficiario !== "true" // CI_SOL solo si persona diferente
                     ).map((slot) => {
                       const isRegistro = slot.prefix === "[ENTREGA]";
                       const uploaded = slotFiles[slot.prefix];

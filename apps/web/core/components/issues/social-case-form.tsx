@@ -604,7 +604,7 @@ export const SocialCaseForm = ({
             <div className="space-y-3">
               <div>
                 <label htmlFor="sc-referencia" className={labelClass}>
-                  Referencia del caso
+                  Solicitud / Beneficio
                 </label>
                 <textarea
                   id="sc-referencia"

@@ -216,7 +216,7 @@ const sectionHeadClass = "block text-xs text-custom-text-300 uppercase tracking-
 
 const labelClass = "block text-xs text-custom-text-300 mb-0.5";
 
-const fieldBase = "w-full rounded-md border-[0.5px] text-13 px-3 py-1.5 transition-colors";
+const fieldBase = "w-full rounded-md border-[0.5px] text-13 px-3 py-1.5 transition-colors font-body";
 const fieldEditable =
   "border-subtle bg-surface-2 text-primary placeholder:text-placeholder focus:border-strong focus:outline-none";
 const fieldReadonly = "border-subtle bg-surface-1 text-primary cursor-default outline-none opacity-75";
@@ -547,7 +547,7 @@ export const SocialCaseForm = ({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="w-full">
+    <div className="w-full font-body">
       {/* Foto de perfil — solo en modo view */}
       {mode === "view" && (
         <div className="flex justify-center py-2">

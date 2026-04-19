@@ -38,11 +38,15 @@ import {
   stripSocialCaseFromHtml,
   injectSocialCaseIntoHtml,
   extractFromHtml,
+  extractProfilePhotoFromHtml,
+  injectProfilePhotoIntoHtml,
 } from "@/components/issues/social-case-form";
 import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
 import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
+import { FileService } from "@/services/file.service";
 
 const attachmentService = new IssueAttachmentService();
+const fileService = new FileService();
 import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
@@ -81,12 +85,37 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const projectDetails = getProjectById(projectId);
   const issue = issueId ? getIssueById(issueId) : undefined;
   const currentState = issue?.state_id ? getStateById(issue.state_id) : undefined;
-  const isClosed = currentState?.group === "completed";
-  const isArticulacion = Boolean(currentState?.name?.toLowerCase().includes("articulaci"));
-  const isEnProceso = Boolean(currentState?.name?.toLowerCase().includes("proceso"));
   const { handleStateChange } = useSocialCaseStateChange({ workspaceSlug, projectId, issueId, issueOperations });
   const projectStates = getProjectStates(projectId);
-  const completedStateId = projectStates?.find((s) => s.group === "completed")?.id;
+  // El flujo de casos sociales solo aplica si el proyecto tiene los tres estados esperados.
+  // Esto evita que proyectos genéricos con nombres de estado similares activen la UI de casos.
+  const hasSocialCaseWorkflow = Boolean(
+    projectStates?.some((s) => s.name?.toLowerCase().includes("proceso")) &&
+    projectStates?.some((s) => s.name?.toLowerCase().includes("articulaci")) &&
+    projectStates?.some((s) => s.name?.toLowerCase().includes("recib"))
+  );
+  const isClosed = currentState?.group === "completed";
+  const isSinResolucion = currentState?.group === "cancelled";
+  const isArticulacion = hasSocialCaseWorkflow && Boolean(currentState?.name?.toLowerCase().includes("articulaci"));
+  const isEnProceso = hasSocialCaseWorkflow && Boolean(currentState?.name?.toLowerCase().includes("proceso"));
+  const isRecibido =
+    hasSocialCaseWorkflow &&
+    Boolean(
+      !isClosed &&
+      !isSinResolucion &&
+      !isArticulacion &&
+      !isEnProceso &&
+      currentState?.name?.toLowerCase().includes("recib")
+    );
+  const completedStateId = projectStates?.find(
+    (s) => s.group === "completed" && !s.name?.toLowerCase().includes("sin")
+  )?.id;
+  const sinResolucionStateId = projectStates?.find(
+    (s) => s.name?.toLowerCase().includes("sin") && s.name?.toLowerCase().includes("resoluci")
+  )?.id;
+  const procesoStateId = projectStates?.find((s) => s.name?.toLowerCase().includes("proceso"))?.id;
+  const articulacionStateId = projectStates?.find((s) => s.name?.toLowerCase().includes("articulaci"))?.id;
+  const recibidoStateId = projectStates?.find((s) => s.name?.toLowerCase().includes("recib"))?.id;
   const SLOT_PREFIXES = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
   const initialSlotFiles = (getAttachmentsByIssueId(issueId) ?? []).reduce<Record<string, string>>((acc, id) => {
     const att = getAttachmentById(id);
@@ -172,8 +201,10 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           mode="view"
           descriptionHtml={issue.description_html ?? ""}
           isClosed={isClosed}
+          isSinResolucion={isSinResolucion}
           isEnProceso={isEnProceso}
           isArticulacion={isArticulacion}
+          isRecibido={isRecibido}
           onSave={async (newHtml) => {
             if (!workspaceSlug || !issue.project_id) return;
             await issueOperations.update(workspaceSlug.toString(), issue.project_id, issue.id, {
@@ -187,15 +218,57 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
                 }
               : undefined
           }
+          onAdvance={
+            isRecibido && procesoStateId
+              ? async () => {
+                  await issueOperations.update(workspaceSlug, projectId, issueId, { state_id: procesoStateId });
+                }
+              : isEnProceso && articulacionStateId
+                ? async () => {
+                    await issueOperations.update(workspaceSlug, projectId, issueId, { state_id: articulacionStateId });
+                  }
+                : undefined
+          }
+          onRetreat={
+            isEnProceso && recibidoStateId
+              ? async () => {
+                  await issueOperations.update(workspaceSlug, projectId, issueId, { state_id: recibidoStateId });
+                }
+              : isArticulacion && procesoStateId
+                ? async () => {
+                    await issueOperations.update(workspaceSlug, projectId, issueId, { state_id: procesoStateId });
+                  }
+                : undefined
+          }
+          onSinResolucion={
+            sinResolucionStateId && !isClosed && !isSinResolucion
+              ? async () => {
+                  await issueOperations.update(workspaceSlug, projectId, issueId, { state_id: sinResolucionStateId });
+                }
+              : undefined
+          }
+          onReabrir={
+            (isClosed || isSinResolucion) && procesoStateId
+              ? async () => {
+                  await issueOperations.update(workspaceSlug, projectId, issueId, { state_id: procesoStateId });
+                }
+              : undefined
+          }
           initialSlotFiles={initialSlotFiles}
           onSlotUpload={async (slotPrefix, file) => {
             const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
             await attachmentService.uploadIssueAttachment(workspaceSlug, projectId, issueId, prefixedFile);
           }}
           onPhotoUpload={async (file) => {
-            const att = await attachmentService.uploadIssueAttachment(workspaceSlug, projectId, issueId, file);
-            return att.asset_url;
+            const response = await fileService.uploadProjectAsset(
+              workspaceSlug,
+              projectId,
+              { entity_identifier: issueId, entity_type: EFileAssetType.ISSUE_DESCRIPTION },
+              file
+            );
+            return response.asset_url ?? "";
           }}
+          onSavingChange={(status) => setIsSubmitting(status)}
         />
 
         <DescriptionInput
@@ -209,11 +282,13 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           key={issue.id}
           onSubmit={async (value, isMigrationUpdate) => {
             if (!issue.id || !issue.project_id) return;
-            // Re-inyectar la ficha en el HTML antes de guardar para no perderla
+            // Re-inyectar la ficha y la foto de perfil en el HTML antes de guardar
             const existingData = extractFromHtml(issue.description_html ?? "");
-            const finalHtml = existingData
+            const existingPhotoUrl = extractProfilePhotoFromHtml(issue.description_html ?? "");
+            let finalHtml = existingData
               ? injectSocialCaseIntoHtml(value.description_html ?? "<p></p>", existingData)
               : (value.description_html ?? "<p></p>");
+            if (existingPhotoUrl) finalHtml = injectProfilePhotoIntoHtml(finalHtml, existingPhotoUrl);
             await issueOperations.update(workspaceSlug, issue.project_id, issue.id, {
               description_html: finalHtml,
               ...(isMigrationUpdate ? { skip_activity: "true" } : {}),

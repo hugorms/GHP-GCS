@@ -446,7 +446,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const blob = await pdf(
         <SocialCaseFichaPDF
           data={
-            d ?? {
+            (d ?? {
               numeroCaso: "",
               cedula: "",
               nombre: "",
@@ -459,12 +459,13 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
               referencia: "",
               accionTomada: "",
               resultado: "",
+              mismoBeneficiario: "true",
               solicitante: "",
               nombreBeneficiario: "",
               cedulaBeneficiario: "",
               observacionCierre: "",
               fechaCierre: "",
-            }
+            }) as SocialCaseData
           }
           projectName={projectName}
           stateName={stateName}

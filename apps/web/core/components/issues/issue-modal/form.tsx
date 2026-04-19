@@ -60,7 +60,7 @@ import {
 import { ProfilePhotoUpload } from "@/components/issues/profile-photo-upload";
 import { FileService } from "@/services/file.service";
 import { EFileAssetType } from "@plane/types";
-import { getFileURL } from "@plane/utils";
+
 const _fileService = new FileService();
 
 export interface IssueFormProps {
@@ -282,7 +282,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
         { entity_identifier: "", entity_type: EFileAssetType.ISSUE_DESCRIPTION },
         file
       );
-      const url = getFileURL(response.asset_url) ?? response.asset_url;
+      const url = response.asset_url ?? "";
       setProfilePhotoUrl(url);
       profilePhotoFileRef.current = null;
       try {
@@ -374,9 +374,9 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
           URL.revokeObjectURL(profilePhotoPreview);
           setProfilePhotoPreview(null);
         }
-        try {
-          localStorage.removeItem(PROFILE_PHOTO_KEY);
-        } catch (_) {}
+        // PROFILE_PHOTO_KEY se borra intencionalmente desde SocialCaseForm (modo view)
+        // una vez que description_html contiene la foto. Si borramos aquí, el detalle
+        // del caso recién creado no tendría foto hasta que el store cargue el description_html.
         setGptAssistantModal(false);
         if (isCreateMoreToggleEnabled && workItemTemplateId) {
           handleTemplateChange({

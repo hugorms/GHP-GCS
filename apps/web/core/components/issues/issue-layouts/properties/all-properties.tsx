@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  * See the LICENSE file for details.
  */
+/* oxlint-disable unicorn/consistent-function-scoping, jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 
 import type { SyntheticEvent } from "react";
 import { useCallback, useMemo } from "react";
@@ -42,6 +43,7 @@ import { useProjectState } from "@/hooks/store/use-project-state";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { usePlatformOS } from "@/hooks/use-platform-os";
+import { buildIssueOpsFromUpdate, useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
 // plane web components
 import { WorkItemLayoutAdditionalProperties } from "@/plane-web/components/issues/issue-layouts/additional-properties";
 // local components
@@ -107,9 +109,13 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
     [workspaceSlug, issue, changeModulesInIssue, addCycleToIssue, removeCycleFromIssue]
   );
 
-  const handleState = async (stateId: string) => {
-    if (updateIssue) await updateIssue(issue.project_id, issue.id, { state_id: stateId });
-  };
+  const socialCaseOps = useMemo(() => buildIssueOpsFromUpdate(updateIssue), [updateIssue]);
+  const { handleStateChange } = useSocialCaseStateChange({
+    workspaceSlug: workspaceSlug?.toString() ?? "",
+    projectId: issue.project_id ?? "",
+    issueId: issue.id,
+    issueOperations: socialCaseOps,
+  });
 
   const handlePriority = async (value: TIssuePriorities) => {
     if (updateIssue) await updateIssue(issue.project_id, issue.id, { priority: value });
@@ -200,7 +206,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
           <StateDropdown
             buttonContainerClassName="truncate max-w-40"
             value={issue.state_id}
-            onChange={handleState}
+            onChange={handleStateChange}
             projectId={issue.project_id}
             disabled={isReadOnly}
             buttonVariant="border-with-text"

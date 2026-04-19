@@ -39,18 +39,32 @@ type Props = {
   onDataChange?: (data: SocialCaseData) => void;
   /** Si true, el caso ya está resuelto — sección cierre en solo lectura */
   isClosed?: boolean;
+  /** Si true, el caso está marcado como sin resolución (grupo cancelled) */
+  isSinResolucion?: boolean;
   /** Si true, el caso está en proceso — muestra sección de beneficiario y evidencia */
   isEnProceso?: boolean;
   /** Si true, el caso está en articulación — muestra sección cierre editable y botón "Resolver caso" */
   isArticulacion?: boolean;
   /** Llamado al guardar la ficha completa desde articulación para transicionar a Resuelto */
   onComplete?: () => Promise<void>;
+  /** Si true, el caso está en "Casos recibidos" — sección básica editable con botón "Iniciar proceso" */
+  isRecibido?: boolean;
+  /** Avanza al siguiente estado (recibido→proceso o proceso→articulación) */
+  onAdvance?: () => Promise<void>;
+  /** Retrocede al estado anterior (proceso→recibido o articulación→proceso) */
+  onRetreat?: () => Promise<void>;
+  /** Marca el caso como "Sin resolución" */
+  onSinResolucion?: () => Promise<void>;
+  /** Reabre un caso cerrado (vuelve a proceso) */
+  onReabrir?: () => Promise<void>;
   /** Llamado al subir un archivo a un slot específico de evidencia */
   onSlotUpload?: (slotPrefix: string, file: File) => Promise<void>;
   /** Archivos ya subidos por slot al montar (prefix → nombre de archivo) */
   initialSlotFiles?: Record<string, string>;
   /** Sube una nueva foto de perfil y devuelve la URL del asset */
   onPhotoUpload?: (file: File) => Promise<string>;
+  /** Sincroniza el estado de guardado con el indicador global del issue ("submitting" | "submitted" | "saved") */
+  onSavingChange?: (status: "submitting" | "submitted" | "saved") => void;
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -174,8 +188,7 @@ export const extractProfilePhotoFromHtml = (html: string): string | null => {
   if (!match) return null;
   const srcMatch = match[0].match(/src="([^"]+)"/);
   if (!srcMatch) return null;
-  // Normaliza: si la URL es absoluta de la API, extrae el path relativo
-  // para que getFileURL reconstruya con el API_BASE_URL actual (evita problemas de cambio de puerto)
+  // Normaliza: si la URL fue guardada como absoluta, devuelve sólo el pathname relativo
   const url = srcMatch[1];
   const relMatch = url.match(/https?:\/\/[^/]+(\/api\/.+)/);
   return relMatch ? relMatch[1] : url;
@@ -220,10 +233,25 @@ const ARTICULACION_REQUIRED: (keyof SocialCaseData)[] = [
   "nombre",
   "cedula",
   "resultado",
+  "accionTomada",
   "referencia",
+  "solicitante",
   "nombreBeneficiario",
   "cedulaBeneficiario",
 ];
+
+// Campos requeridos para iniciar el proceso (recibido → proceso)
+const RECIBIDO_REQUIRED: { key: keyof SocialCaseData; label: string }[] = [
+  { key: "cedula", label: "Cédula" },
+  { key: "nombre", label: "Nombre" },
+  { key: "telefono", label: "Teléfono" },
+  { key: "direccion", label: "Dirección" },
+  { key: "jornada", label: "Actividad" },
+  { key: "referencia", label: "Solicitud / Beneficio" },
+];
+
+// Campos requeridos para enviar a articulación (proceso → articulación)
+const PROCESO_REQUIRED: (keyof SocialCaseData)[] = ["resultado", "accionTomada"];
 
 export const SocialCaseForm = ({
   issueId,
@@ -232,9 +260,16 @@ export const SocialCaseForm = ({
   onSave,
   onDataChange,
   isClosed = false,
+  isSinResolucion = false,
   isEnProceso = false,
   isArticulacion = false,
+  isRecibido = false,
   onComplete,
+  onAdvance,
+  onRetreat,
+  onSinResolucion,
+  onReabrir,
+  onSavingChange,
   onSlotUpload,
   initialSlotFiles = {},
   onPhotoUpload,
@@ -254,6 +289,20 @@ export const SocialCaseForm = ({
   useEffect(() => {
     latestDescHtml.current = descriptionHtml;
   });
+  // Timer para auto-guardado con debounce (solo en modo view)
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Referencia mutable a los datos actuales para usarla dentro del timer sin capturar closure viejo
+  const latestData = useRef<SocialCaseData>(EMPTY);
+  useEffect(() => {
+    latestData.current = data;
+  });
+  // Cancelar timer al desmontar
+  useEffect(
+    () => () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    },
+    []
+  );
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -271,6 +320,11 @@ export const SocialCaseForm = ({
     // modo view: leer desde description_html
     const extracted = extractFromHtml(descriptionHtml);
     if (extracted) {
+      // Si es la misma persona y los campos de beneficiario están vacíos → sincronizar con el ciudadano
+      if (extracted.mismoBeneficiario === "true") {
+        if (!extracted.nombreBeneficiario) extracted.nombreBeneficiario = extracted.nombre;
+        if (!extracted.cedulaBeneficiario) extracted.cedulaBeneficiario = extracted.cedula;
+      }
       setData(extracted);
       return;
     }
@@ -327,18 +381,50 @@ export const SocialCaseForm = ({
       return next;
     });
     setSaved(false);
+
+    // Auto-guardado con debounce en modo view
+    scheduleAutoSave();
+  };
+
+  const scheduleAutoSave = () => {
+    if (mode !== "view" || !onSave) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      try {
+        setSaving(true);
+        onSavingChange?.("submitting");
+        const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, latestData.current);
+        await onSave(newHtml);
+        setSaved(true);
+        onSavingChange?.("submitted");
+        setTimeout(() => {
+          setSaved(false);
+          onSavingChange?.("saved");
+        }, 2000);
+      } catch (_) {
+        onSavingChange?.("saved");
+      } finally {
+        setSaving(false);
+      }
+    }, 1500);
   };
 
   const save = async () => {
     if (!onSave) return;
     setSaving(true);
+    onSavingChange?.("submitting");
     try {
       const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, data);
       await onSave(newHtml);
       setSaved(true);
       setEditing(false);
-      setTimeout(() => setSaved(false), 2000);
+      onSavingChange?.("submitted");
+      setTimeout(() => {
+        setSaved(false);
+        onSavingChange?.("saved");
+      }, 2000);
     } catch (_) {
+      onSavingChange?.("saved");
     } finally {
       setSaving(false);
     }
@@ -347,12 +433,16 @@ export const SocialCaseForm = ({
   const saveAndComplete = async () => {
     if (!onSave || !onComplete) return;
     setSaving(true);
+    onSavingChange?.("submitting");
     try {
       const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, data);
       await onSave(newHtml);
       await onComplete();
       setEditing(false);
+      onSavingChange?.("submitted");
+      setTimeout(() => onSavingChange?.("saved"), 2000);
     } catch (_) {
+      onSavingChange?.("saved");
     } finally {
       setSaving(false);
     }
@@ -382,15 +472,78 @@ export const SocialCaseForm = ({
     }
   };
 
-  const articulacionComplete = isArticulacion ? ARTICULACION_REQUIRED.every((k) => data[k]?.trim()) : false;
+  // En articulación, si es la misma persona se eximen los campos de beneficiario
+  // (igual que hace el hook de cierre en el servidor)
+  const effectiveArticulacionRequired =
+    isArticulacion && data.mismoBeneficiario === "true"
+      ? ARTICULACION_REQUIRED.filter((k) => k !== "nombreBeneficiario" && k !== "cedulaBeneficiario")
+      : ARTICULACION_REQUIRED;
+  const articulacionComplete = isArticulacion ? effectiveArticulacionRequired.every((k) => data[k]?.trim()) : false;
 
-  const isEditable = mode === "create-no-save" || editing || isArticulacion || isEnProceso;
+  // accionTomada y resultado solo se muestran en proceso, articulación o resuelto
+  // En create-no-save (modal) y en recibidos → solo referencia (solicitud/beneficio)
+  const showFullSeguimiento = mode !== "create-no-save" && !isRecibido;
+
+  // Progreso recibido → proceso
+  const recibidoFilled = RECIBIDO_REQUIRED.filter(({ key }) => data[key]?.trim()).length;
+  const recibidoComplete = recibidoFilled === RECIBIDO_REQUIRED.length;
+
+  // Progreso proceso → articulación (beneficiario obligatorio si persona diferente)
+  const procesoMissingBenef =
+    data.mismoBeneficiario !== "true"
+      ? (!data.nombreBeneficiario?.trim() ? 1 : 0) + (!data.cedulaBeneficiario?.trim() ? 1 : 0)
+      : 0;
+  const procesoComplete = PROCESO_REQUIRED.every((k) => data[k]?.trim()) && procesoMissingBenef === 0;
+
+  const isEditable = mode === "create-no-save" || editing || isArticulacion || isEnProceso || isRecibido;
+
+  // Guarda la ficha y luego llama a la función de avance de estado
+  const saveAndAdvance = async (advanceFn: () => Promise<void>) => {
+    if (!onSave) return;
+    setSaving(true);
+    onSavingChange?.("submitting");
+    try {
+      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, data);
+      await onSave(newHtml);
+      await advanceFn();
+      onSavingChange?.("submitted");
+      setTimeout(() => onSavingChange?.("saved"), 2000);
+    } catch (_) {
+      onSavingChange?.("saved");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const fc = (editable: boolean) => cn(fieldBase, editable ? fieldEditable : fieldReadonly);
 
-  // Foto de perfil actual extraída del HTML
-  const currentPhotoUrl = mode === "view" ? extractProfilePhotoFromHtml(descriptionHtml) : null;
-  const photoDisplayUrl = currentPhotoUrl ? (getFileURL(currentPhotoUrl) ?? currentPhotoUrl) : null;
+  // Foto de perfil actual extraída del HTML.
+  // Fallback: si description_html aún no tiene la foto (store no cargado todavía),
+  // usa el PROFILE_PHOTO_KEY guardado en localStorage durante la creación del caso.
+  // Una vez que description_html tenga la foto, limpiamos el localStorage.
+  const currentPhotoUrl =
+    mode === "view"
+      ? (extractProfilePhotoFromHtml(descriptionHtml) ??
+        (() => {
+          try {
+            return localStorage.getItem(PROFILE_PHOTO_KEY) || null;
+          } catch {
+            return null;
+          }
+        })())
+      : null;
+  const photoSrc = currentPhotoUrl ? getFileURL(currentPhotoUrl) : null;
+
+  useEffect(() => {
+    if (mode !== "view") return;
+    if (extractProfilePhotoFromHtml(descriptionHtml)) {
+      try {
+        localStorage.removeItem(PROFILE_PHOTO_KEY);
+      } catch {
+        /* noop */
+      }
+    }
+  }, [mode, descriptionHtml]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -400,8 +553,8 @@ export const SocialCaseForm = ({
         <div className="flex justify-center py-2">
           <div className="relative">
             <div className="border-custom-border-200 shadow-sm h-32 w-24 overflow-hidden rounded-md border">
-              {photoDisplayUrl ? (
-                <img src={photoDisplayUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+              {photoSrc ? (
+                <img src={photoSrc} alt="Foto de perfil" className="h-full w-full object-cover" />
               ) : (
                 <div className="bg-custom-background-90 flex h-full w-full items-center justify-center">
                   <span className="text-xs text-custom-text-400 px-1 text-center">Sin foto</span>
@@ -623,52 +776,45 @@ export const SocialCaseForm = ({
                   onChange={(e) => update("referencia", e.target.value)}
                 />
               </div>
-              <div>
-                <label htmlFor="sc-accion" className={labelClass}>
-                  Accion tomada
-                </label>
-                <textarea
-                  id="sc-accion"
-                  disabled={!isEditable}
-                  autoCapitalize="sentences"
-                  className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")}
-                  placeholder="Describe que se hizo para atender el caso..."
-                  value={data.accionTomada}
-                  onChange={(e) => update("accionTomada", e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="sc-resultado" className={labelClass}>
-                  Resultado / Beneficio otorgado
-                </label>
-                <textarea
-                  id="sc-resultado"
-                  disabled={!isEditable}
-                  autoCapitalize="sentences"
-                  className={cn(fc(isEditable), "min-h-[52px] resize-y leading-relaxed")}
-                  placeholder="Que se otorgo o por que no se pudo resolver..."
-                  value={data.resultado}
-                  onChange={(e) => update("resultado", e.target.value)}
-                />
-              </div>
+              {showFullSeguimiento && (
+                <div>
+                  <label htmlFor="sc-accion" className={labelClass}>
+                    Accion tomada
+                  </label>
+                  <textarea
+                    id="sc-accion"
+                    disabled={!isEditable}
+                    autoCapitalize="sentences"
+                    className={cn(fc(isEditable), "min-h-[64px] resize-y leading-relaxed")}
+                    placeholder="Describe que se hizo para atender el caso..."
+                    value={data.accionTomada}
+                    onChange={(e) => update("accionTomada", e.target.value)}
+                  />
+                </div>
+              )}
+              {showFullSeguimiento && (
+                <div>
+                  <label htmlFor="sc-resultado" className={labelClass}>
+                    Resultado / Beneficio otorgado
+                  </label>
+                  <textarea
+                    id="sc-resultado"
+                    disabled={!isEditable}
+                    autoCapitalize="sentences"
+                    className={cn(fc(isEditable), "min-h-[52px] resize-y leading-relaxed")}
+                    placeholder="Que se otorgo o por que no se pudo resolver..."
+                    value={data.resultado}
+                    onChange={(e) => update("resultado", e.target.value)}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
           {/* SECCION 4: EN PROCESO — visible en "En proceso", articulación y resuelto */}
           {(isEnProceso || isArticulacion || isClosed) && (
-            <div
-              className={cn(
-                "space-y-3 rounded-md border p-3",
-                isEnProceso && !isArticulacion && !isClosed
-                  ? "border-yellow-500/30 bg-yellow-500/5"
-                  : isClosed
-                    ? "border-green-500/30 bg-green-500/5"
-                    : "border-blue-500/30 bg-blue-500/5"
-              )}
-            >
-              <span className={cn(sectionHeadClass, "text-yellow-600 dark:text-yellow-400 mb-0")}>
-                Identificación del beneficiario
-              </span>
+            <div className="space-y-3">
+              <span className={sectionHeadClass}>Identificación del beneficiario</span>
 
               {/* Checkbox: solicitante diferente */}
               <label className="flex cursor-pointer items-center gap-2">
@@ -676,7 +822,26 @@ export const SocialCaseForm = ({
                   type="checkbox"
                   disabled={isClosed}
                   checked={data.mismoBeneficiario !== "true"}
-                  onChange={(e) => update("mismoBeneficiario", e.target.checked ? "" : "true")}
+                  onChange={(e) => {
+                    const diferente = e.target.checked;
+                    setData((prev) => {
+                      const next = {
+                        ...prev,
+                        mismoBeneficiario: diferente ? "" : "true",
+                        // Al volver a "misma persona" → restaurar los datos del ciudadano
+                        ...(diferente ? {} : { nombreBeneficiario: prev.nombre, cedulaBeneficiario: prev.cedula }),
+                      };
+                      if (mode === "create-no-save") {
+                        try {
+                          localStorage.setItem(PENDING_KEY, JSON.stringify(next));
+                        } catch (_) {}
+                        onDataChange?.(next);
+                      }
+                      return next;
+                    });
+                    setSaved(false);
+                    scheduleAutoSave();
+                  }}
                   className="accent-custom-primary h-4 w-4 rounded border-subtle"
                 />
                 <span className="text-sm text-custom-text-200">
@@ -684,104 +849,45 @@ export const SocialCaseForm = ({
                 </span>
               </label>
 
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                <div>
-                  <label htmlFor="sc-nombre-beneficiario2" className={labelClass}>
-                    Nombre del beneficiario
-                  </label>
-                  <input
-                    id="sc-nombre-beneficiario2"
-                    disabled={isClosed}
-                    autoCapitalize="words"
-                    className={fc(!isClosed)}
-                    placeholder="Si es diferente al ciudadano"
-                    value={data.nombreBeneficiario}
-                    onChange={(e) => update("nombreBeneficiario", e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="sc-cedula-beneficiario2" className={labelClass}>
-                    Cédula del beneficiario
-                  </label>
-                  <input
-                    id="sc-cedula-beneficiario2"
-                    disabled={isClosed}
-                    className={fc(!isClosed)}
-                    placeholder="V-00.000.000"
-                    value={data.cedulaBeneficiario}
-                    onChange={(e) => update("cedulaBeneficiario", e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Slots de evidencia */}
-              {onSlotUpload && !isClosed && (
-                <div>
-                  <span className={cn(sectionHeadClass, "mb-2")}>Evidencia fotográfica</span>
-                  <div className="flex flex-wrap gap-2">
-                    {EVIDENCE_SLOTS.filter(
-                      (slot) => slot.prefix !== "[CI_SOL]" || data.mismoBeneficiario !== "true" // CI_SOL solo si persona diferente
-                    ).map((slot) => {
-                      const isRegistro = slot.prefix === "[ENTREGA]";
-                      const uploaded = slotFiles[slot.prefix];
-                      const uploading = slotUploading[slot.prefix];
-                      // Para REGISTRO: contar cuántas fotos hay (busca key con prefijo [ENTREGA]_N)
-                      const registroCount = isRegistro
-                        ? Object.keys(slotFiles).filter((k) => k.startsWith("[ENTREGA]")).length
-                        : 0;
-                      const displayLabel = isRegistro
-                        ? registroCount > 0
-                          ? `✓ ${slot.label} (${registroCount})`
-                          : slot.label
-                        : uploaded
-                          ? `✓ ${slot.label}`
-                          : slot.label;
-                      return (
-                        <div key={slot.prefix} className="flex flex-col gap-1">
-                          <label
-                            className={cn(
-                              "text-xs flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors",
-                              uploading
-                                ? "border-blue-300 bg-blue-50 text-blue-500 dark:bg-blue-900/20"
-                                : (isRegistro ? registroCount > 0 : !!uploaded)
-                                  ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-900/20"
-                                  : "text-custom-text-200 hover:text-custom-text-100 border-subtle bg-surface-2 hover:border-strong"
-                            )}
-                          >
-                            <input
-                              type="file"
-                              accept="image/*,.pdf"
-                              className="hidden"
-                              disabled={uploading}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                if (isRegistro) {
-                                  // Prefijo único por contador para permitir múltiples
-                                  const count = Object.keys(slotFiles).filter((k) => k.startsWith("[ENTREGA]")).length;
-                                  const uniquePrefix = `[ENTREGA]_${count + 1}`;
-                                  handleSlotUpload(uniquePrefix, file);
-                                } else {
-                                  handleSlotUpload(slot.prefix, file);
-                                }
-                                e.target.value = "";
-                              }}
-                            />
-                            {uploading ? "Subiendo..." : displayLabel}
-                          </label>
-                        </div>
-                      );
-                    })}
-                  </div>
+              {/* Misma persona → mostrar datos del ciudadano como referencia */}
+              {data.mismoBeneficiario === "true" && (
+                <div className="bg-custom-background-90 text-sm text-custom-text-300 rounded-md px-3 py-2">
+                  <span className="text-custom-text-200 font-medium">{data.nombre || "—"}</span>
+                  <span className="mx-2">·</span>
+                  <span>{data.cedula || "—"}</span>
                 </div>
               )}
 
-              {/* Guardar cambios en modo En proceso */}
-              {isEnProceso && !isArticulacion && !isClosed && mode === "view" && (
-                <div className="flex justify-end pt-1">
-                  <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
-                    {saved ? "Guardado" : "Guardar"}
-                  </Button>
+              {/* Persona diferente → campos editables */}
+              {data.mismoBeneficiario !== "true" && (
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                  <div>
+                    <label htmlFor="sc-nombre-beneficiario2" className={labelClass}>
+                      Nombre del beneficiario
+                    </label>
+                    <input
+                      id="sc-nombre-beneficiario2"
+                      disabled={isClosed}
+                      autoCapitalize="words"
+                      className={fc(!isClosed)}
+                      placeholder="Nombre y apellido"
+                      value={data.nombreBeneficiario}
+                      onChange={(e) => update("nombreBeneficiario", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="sc-cedula-beneficiario2" className={labelClass}>
+                      Cédula del beneficiario
+                    </label>
+                    <input
+                      id="sc-cedula-beneficiario2"
+                      disabled={isClosed}
+                      className={fc(!isClosed)}
+                      placeholder="V-00.000.000"
+                      value={data.cedulaBeneficiario}
+                      onChange={(e) => update("cedulaBeneficiario", e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -789,27 +895,15 @@ export const SocialCaseForm = ({
 
           {/* SECCION 5: CIERRE DEL CASO — visible en articulación (editable) o resuelto (lectura) */}
           {(isClosed || isArticulacion) && (
-            <div
-              className={cn(
-                "space-y-3 rounded-md border p-3",
-                isArticulacion && !isClosed ? "border-blue-500/30 bg-blue-500/5" : "border-green-500/30 bg-green-500/5"
-              )}
-            >
+            <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <span
-                  className={cn(
-                    sectionHeadClass,
-                    "mb-0",
-                    isArticulacion && !isClosed
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-green-600 dark:text-green-400"
-                  )}
-                >
+                <span className={sectionHeadClass}>
                   {isArticulacion && !isClosed ? "Articulación del caso" : "Cierre del caso"}
                 </span>
                 {isArticulacion && !isClosed && (
                   <span className="text-xs text-custom-text-400">
-                    {ARTICULACION_REQUIRED.filter((k) => data[k]?.trim()).length}/{ARTICULACION_REQUIRED.length} campos
+                    {effectiveArticulacionRequired.filter((k) => data[k]?.trim()).length}/
+                    {effectiveArticulacionRequired.length} campos
                   </span>
                 )}
               </div>
@@ -858,64 +952,218 @@ export const SocialCaseForm = ({
                   onChange={(e) => update("observacionCierre", e.target.value)}
                 />
               </div>
-
-              {/* Botón resolver caso — solo en articulación */}
-              {isArticulacion && !isClosed && mode === "view" && (
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  {!articulacionComplete && (
-                    <span className="text-xs text-custom-text-400">
-                      Completa los campos requeridos para resolver el caso
-                    </span>
-                  )}
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    loading={saving}
-                    disabled={!articulacionComplete}
-                    onClick={saveAndComplete}
-                  >
-                    Resolver caso
-                  </Button>
-                </div>
-              )}
             </div>
           )}
 
-          {/* BOTONES — solo en modo view */}
+          {/* BARRA DE NAVEGACIÓN — unificada al final del formulario */}
           {mode === "view" && (
-            <div className="flex items-center justify-end gap-2 pt-1">
-              {!editing && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    savedData.current = data;
-                    setEditing(true);
-                  }}
-                >
-                  Editar ficha
-                </Button>
+            <div className="border-custom-border-100 space-y-3 border-t pt-3">
+              {/* Slots de evidencia — agrupados junto a los botones de acción */}
+              {onSlotUpload && !isClosed && (isEnProceso || isArticulacion) && (
+                <div className="flex flex-wrap gap-2">
+                  {EVIDENCE_SLOTS.filter((slot) => slot.prefix !== "[CI_SOL]" || data.mismoBeneficiario !== "true").map(
+                    (slot) => {
+                      const isRegistro = slot.prefix === "[ENTREGA]";
+                      const uploaded = slotFiles[slot.prefix];
+                      const uploading = slotUploading[slot.prefix];
+                      const registroCount = isRegistro
+                        ? Object.keys(slotFiles).filter((k) => k.startsWith("[ENTREGA]")).length
+                        : 0;
+                      const isDone = isRegistro ? registroCount > 0 : !!uploaded;
+                      const displayLabel = isRegistro
+                        ? registroCount > 0
+                          ? `${slot.label} (${registroCount})`
+                          : slot.label
+                        : uploaded
+                          ? slot.label
+                          : slot.label;
+                      return (
+                        <label
+                          key={slot.prefix}
+                          className={cn(
+                            "text-xs flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors",
+                            uploading
+                              ? "border-blue-300 bg-blue-50 text-blue-500 dark:bg-blue-900/20"
+                              : isDone
+                                ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-900/20"
+                                : "text-custom-text-200 hover:text-custom-text-100 border-subtle bg-surface-2 hover:border-strong"
+                          )}
+                        >
+                          <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            className="hidden"
+                            disabled={uploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              if (isRegistro) {
+                                const count = Object.keys(slotFiles).filter((k) => k.startsWith("[ENTREGA]")).length;
+                                handleSlotUpload(`[ENTREGA]_${count + 1}`, file);
+                              } else {
+                                handleSlotUpload(slot.prefix, file);
+                              }
+                              e.target.value = "";
+                            }}
+                          />
+                          {/* ícono clip */}
+                          <svg
+                            className="h-3 w-3 shrink-0"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                            />
+                          </svg>
+                          {uploading ? "Subiendo..." : isDone ? `✓ ${displayLabel}` : displayLabel}
+                        </label>
+                      );
+                    }
+                  )}
+                </div>
               )}
-              {editing && (
-                <>
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="sm"
-                    onClick={() => {
-                      setData(savedData.current);
-                      setEditing(false);
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
-                    {saved ? "Guardado" : "Guardar ficha"}
-                  </Button>
-                </>
-              )}
+
+              <div className="flex items-center justify-between gap-2">
+                {/* Izquierda: retroceder / reabrir */}
+                <div className="flex items-center gap-2">
+                  {isEnProceso && !isArticulacion && !isClosed && onRetreat && (
+                    <Button type="button" variant="tertiary" size="sm" onClick={() => onRetreat()}>
+                      ← Recibidos
+                    </Button>
+                  )}
+                  {isArticulacion && !isClosed && onRetreat && (
+                    <Button type="button" variant="tertiary" size="sm" onClick={() => onRetreat()}>
+                      ← Proceso
+                    </Button>
+                  )}
+                  {(isClosed || isSinResolucion) && onReabrir && (
+                    <Button type="button" variant="tertiary" size="sm" onClick={() => onReabrir()}>
+                      Reabrir caso
+                    </Button>
+                  )}
+                  {!isRecibido && !isEnProceso && !isArticulacion && !isClosed && !isSinResolucion && editing && (
+                    <Button
+                      type="button"
+                      variant="tertiary"
+                      size="sm"
+                      onClick={() => {
+                        setData(savedData.current);
+                        setEditing(false);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+
+                {/* Derecha: guardar / avanzar */}
+                <div className="flex items-center gap-2">
+                  {/* Estado: Recibido */}
+                  {isRecibido && (
+                    <>
+                      {!recibidoComplete && (
+                        <span className="text-xs text-custom-text-400">
+                          Falta:{" "}
+                          {RECIBIDO_REQUIRED.filter(({ key }) => !data[key]?.trim())
+                            .map(({ label }) => label)
+                            .join(", ")}
+                        </span>
+                      )}
+                      {onSinResolucion && (
+                        <Button type="button" variant="error-outline" size="sm" onClick={() => onSinResolucion()}>
+                          Sin resolución
+                        </Button>
+                      )}
+                      {onAdvance && (
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          loading={saving}
+                          disabled={!recibidoComplete}
+                          onClick={() => saveAndAdvance(onAdvance)}
+                        >
+                          Iniciar proceso →
+                        </Button>
+                      )}
+                    </>
+                  )}
+
+                  {/* Estado: En proceso */}
+                  {isEnProceso && !isArticulacion && !isClosed && (
+                    <>
+                      {onSinResolucion && (
+                        <Button type="button" variant="error-outline" size="sm" onClick={() => onSinResolucion()}>
+                          Sin resolución
+                        </Button>
+                      )}
+                      <Button type="button" variant="secondary" size="sm" loading={saving} onClick={save}>
+                        {saved ? "Guardado" : "Guardar"}
+                      </Button>
+                      {onAdvance && (
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          loading={saving}
+                          disabled={!procesoComplete}
+                          onClick={() => saveAndAdvance(onAdvance)}
+                        >
+                          Articulación →
+                        </Button>
+                      )}
+                    </>
+                  )}
+
+                  {/* Estado: Articulación */}
+                  {isArticulacion && !isClosed && (
+                    <>
+                      {!articulacionComplete && (
+                        <span className="text-xs text-custom-text-400">Completa los campos requeridos</span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        loading={saving}
+                        disabled={!articulacionComplete}
+                        onClick={saveAndComplete}
+                      >
+                        Resolver caso
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Fallback: estado no reconocido — botones de edición manual */}
+                  {!isRecibido && !isEnProceso && !isArticulacion && !isClosed && !isSinResolucion && (
+                    <>
+                      {!editing && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            savedData.current = data;
+                            setEditing(true);
+                          }}
+                        >
+                          Editar ficha
+                        </Button>
+                      )}
+                      {editing && (
+                        <Button type="button" variant="primary" size="sm" loading={saving} onClick={save}>
+                          {saved ? "Guardado" : "Guardar ficha"}
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

@@ -86,7 +86,9 @@ async function urlToBase64(url: string): Promise<string> {
 // y luego descarga el archivo SIN credenciales (evita CORS wildcard+credentials)
 async function fetchBase64WithAuth(apiUrl: string): Promise<string> {
   // Paso 1: pedir la URL pre-firmada como JSON (no redirect)
-  const jsonRes = await fetch(`${apiUrl}?as_url=1`, { credentials: "include" });
+  // Usar & si la URL ya tiene query params para no malformar la URL
+  const sep = apiUrl.includes("?") ? "&" : "?";
+  const jsonRes = await fetch(`${apiUrl}${sep}as_url=1`, { credentials: "include" });
   if (!jsonRes.ok) throw new Error(`HTTP ${jsonRes.status} al obtener URL`);
   const { url } = await jsonRes.json();
   // Paso 2: descargar de MinIO sin credenciales (pre-signed URL es auto-autenticada)
@@ -554,24 +556,27 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         logoId = null;
       }
 
-      // ── Filas de encabezado (filas 1–3) ───────────────────────────────────
+      // ── Filas de encabezado (filas 1–4) ───────────────────────────────────
       const HEADER_BG = "FF1e3a5f";
       const WHITE = "FFFFFFFF";
 
-      sheet.addRow([]); // fila 1 — logo (A1:C1)
+      sheet.addRow([]); // fila 1 — logo
       sheet.addRow([]); // fila 2 — nombre de la actividad
-      sheet.addRow([]); // fila 3 — fecha del reporte
+      sheet.addRow([]); // fila 3 — fecha de inicio del primer caso
+      sheet.addRow([]); // fila 4 — fecha de generación del reporte
 
       sheet.getRow(1).height = 70;
       sheet.getRow(2).height = 40;
       sheet.getRow(3).height = 28;
+      sheet.getRow(4).height = 24;
 
       // A1:J1 — logo ocupa toda la fila 1
       sheet.mergeCells("A1:J1");
       sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "center" };
       if (logoId !== null) {
         // tl = inicio columna A, fila 1 — br = mitad columna G, fin fila 1
-        sheet.addImage(logoId, { tl: { col: 0, row: 0 }, br: { col: 6.5, row: 1 } });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sheet.addImage(logoId, { tl: { col: 0, row: 0 } as any, br: { col: 6.5, row: 1 } as any });
       }
 
       // A2:J2 — nombre de la actividad (jornada)
@@ -584,13 +589,33 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       sheet.getCell("A2").font = { bold: true, size: 18, name: "Arial", color: { argb: "FF000000" } };
       sheet.getCell("A2").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-      // A3:J3 — fecha del reporte
+      // A3:J3 — fecha de inicio del primer caso de la actividad
       sheet.mergeCells("A3:J3");
-      sheet.getCell("A3").value = `FECHA: ${new Date()
-        .toLocaleDateString("es-VE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
-        .toUpperCase()}`;
+      const firstCaseStartDate = rows
+        .map(
+          (r) =>
+            allIssues.find((is) => is.id === r.id)?.start_date ??
+            allIssues.find((is) => is.id === r.id)?.created_at?.slice(0, 10)
+        )
+        .filter(Boolean)
+        // oxlint-disable-next-line unicorn/no-array-sort
+        .sort()[0];
+      const firstCaseDateLabel = firstCaseStartDate
+        ? new Date(firstCaseStartDate + "T00:00:00")
+            .toLocaleDateString("es-VE", { day: "2-digit", month: "long", year: "numeric" })
+            .toUpperCase()
+        : "-";
+      sheet.getCell("A3").value = `FECHA DE INICIO: ${firstCaseDateLabel}`;
       sheet.getCell("A3").font = { bold: true, size: 16, name: "Arial", color: { argb: "FF000000" } };
       sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
+
+      // A4:J4 — fecha de generación del reporte
+      sheet.mergeCells("A4:J4");
+      sheet.getCell("A4").value = `FECHA DE GENERACIÓN: ${new Date()
+        .toLocaleDateString("es-VE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+        .toUpperCase()}`;
+      sheet.getCell("A4").font = { size: 11, name: "Arial", color: { argb: "FF000000" } };
+      sheet.getCell("A4").alignment = { vertical: "middle", horizontal: "center" };
 
       // ── Fila de cabecera de tabla (fila 5) ─────────────────────────────────
       const BORDER_THIN = { style: "thin" as const, color: { argb: "FF9ca3af" } };

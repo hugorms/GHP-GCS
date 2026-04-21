@@ -29,7 +29,8 @@ async function urlToBase64(url: string): Promise<string> {
 // Obtiene la URL pre-firmada de MinIO a través del API de Django (que requiere auth)
 // y luego descarga el archivo SIN credenciales (evita CORS wildcard+credentials)
 async function fetchBase64WithAuth(apiUrl: string): Promise<string> {
-  const jsonRes = await fetch(`${apiUrl}?as_url=1`, { credentials: "include" });
+  const sep = apiUrl.includes("?") ? "&" : "?";
+  const jsonRes = await fetch(`${apiUrl}${sep}as_url=1`, { credentials: "include" });
   if (!jsonRes.ok) throw new Error(`HTTP ${jsonRes.status} al obtener URL`);
   const { url } = await jsonRes.json();
   return urlToBase64(url);

@@ -1,15 +1,17 @@
+/* oxlint-disable promise/always-return */
 /**
  * Copyright (c) 2023-present Plane Software, Inc. and contributors
  * SPDX-License-Identifier: AGPL-3.0-only
  * See the LICENSE file for details.
  */
 
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import { observer } from "mobx-react";
 import Link from "next/link";
-import { MoveDiagonal, MoveRight } from "lucide-react";
+import { FileDown, MoveDiagonal, MoveRight } from "lucide-react";
 // plane imports
 import { useTranslation } from "@plane/i18n";
+import { Button } from "@plane/propel/button";
 import { CenterPanelIcon, CopyLinkIcon, FullScreenPanelIcon, SidePanelIcon } from "@plane/propel/icons";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
@@ -21,8 +23,11 @@ import { copyUrlToClipboard, generateWorkItemLink } from "@plane/utils";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useProject } from "@/hooks/store/use-project";
+import { useProjectState } from "@/hooks/store/use-project-state";
 import { useUser } from "@/hooks/store/user";
 import { usePlatformOS } from "@/hooks/use-platform-os";
+import { useSocialCaseFichaExport } from "@/hooks/use-social-case-ficha-export";
+import { extractFromHtml } from "@/components/issues/social-case-form";
 // local imports
 import { IssueSubscription } from "../issue-detail/subscription";
 import { WorkItemDetailQuickActions } from "../issue-layouts/quick-action-dropdowns";
@@ -99,10 +104,22 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
   } = useIssueDetail();
   const { isMobile } = usePlatformOS();
   const { getProjectIdentifierById } = useProject();
+  const { getProjectStates } = useProjectState();
   // derived values
   const issueDetails = getIssueById(issueId);
   const currentMode = PEEK_OPTIONS.find((m) => m.key === peekMode);
   const projectIdentifier = getProjectIdentifierById(issueDetails?.project_id);
+  const projectStates = getProjectStates(projectId);
+  const hasSocialCaseWorkflow = Boolean(
+    projectStates?.some((s) => s.name?.toLowerCase().includes("proceso")) &&
+    projectStates?.some((s) => s.name?.toLowerCase().includes("articulaci")) &&
+    projectStates?.some((s) => s.name?.toLowerCase().includes("recib"))
+  );
+  const isSocialCase = useMemo(
+    () => hasSocialCaseWorkflow && extractFromHtml(issueDetails?.description_html ?? "") !== null,
+    [hasSocialCaseWorkflow, issueDetails?.description_html]
+  );
+  const { exportFicha, isExporting } = useSocialCaseFichaExport({ workspaceSlug, projectId, issueId });
   const {
     issues: { removeIssue: removeArchivedIssue },
   } = useIssues(EIssuesStoreType.ARCHIVED);
@@ -202,6 +219,20 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
       <div className="flex items-center gap-x-4">
         <NameDescriptionUpdateStatus isSubmitting={isSubmitting} />
         <div className="flex items-center gap-2">
+          {isSocialCase && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              prependIcon={!isExporting ? <FileDown className="h-3 w-3" /> : undefined}
+              className="hover:!bg-accent-primary/20"
+              onClick={exportFicha}
+              disabled={isExporting}
+              loading={isExporting}
+            >
+              <div className="hidden sm:block">Exportar PDF</div>
+            </Button>
+          )}
           {currentUser && !isArchived && (
             <IssueSubscription workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} />
           )}

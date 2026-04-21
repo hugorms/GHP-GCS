@@ -199,7 +199,7 @@ export const IssuesHeader = observer(function IssuesHeader() {
           className="hidden items-center gap-1.5 md:flex"
         >
           <FileText className="h-3.5 w-3.5" />
-          Reporte PDF
+          Reporte General
         </Button>
         {canUserCreateIssue && (
           <Button

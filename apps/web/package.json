@@ -45,6 +45,7 @@
     "comlink": "^4.4.1",
     "date-fns": "^4.1.0",
     "emoji-picker-react": "^4.5.16",
+    "exceljs": "^4.4.0",
     "export-to-csv": "^1.4.0",
     "isbot": "^5.1.31",
     "lodash-es": "catalog:",

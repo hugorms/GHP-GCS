@@ -1,7 +1,7 @@
 // rebuild
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { FileDown } from "lucide-react";
+import { FileDown, FileSpreadsheet } from "lucide-react";
 import { observer } from "mobx-react";
 import { pdf } from "@react-pdf/renderer";
 import { Button } from "@plane/propel/button";
@@ -22,7 +22,6 @@ import {
   type AttachmentInfo,
   type StateFlowStep,
 } from "@/components/issues/social-case-report-pdf";
-import { SocialCaseFichaPDF, type FichaAttachment } from "@/components/issues/social-case-ficha-pdf";
 
 // ── Date preset helpers ──────────────────────────────────────────────────────
 
@@ -68,6 +67,7 @@ class SocialCaseService extends APIService {
 }
 const socialCaseService = new SocialCaseService();
 const attachmentService = new IssueAttachmentService();
+const toUpperOrDash = (v: string | undefined | null) => (v ?? "-").toUpperCase();
 
 // Convierte una URL directa (sin credenciales) a base64
 async function urlToBase64(url: string): Promise<string> {
@@ -113,7 +113,8 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const [preset, setPreset] = useState<Preset>("month");
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");
-  const [generating, setGenerating] = useState(false);
+  const [generatingType, setGeneratingType] = useState<"pdf" | "excel" | null>(null);
+  const generating = generatingType !== null;
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [includeCover, setIncludeCover] = useState(true);
   const [includePhotos, setIncludePhotos] = useState(true);
@@ -121,9 +122,6 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const [includeAttachments, setIncludeAttachments] = useState(true);
   const [openAfter, setOpenAfter] = useState(true);
   const [estadosFilter, setEstadosFilter] = useState<string[]>([]); // [] = Todos
-  const [selectedFichaId, setSelectedFichaId] = useState<string>("");
-  const [generatingFicha, setGeneratingFicha] = useState(false);
-
   const toggleEstadoModal = (estado: string) =>
     setEstadosFilter((prev) => (prev.includes(estado) ? prev.filter((e) => e !== estado) : [...prev, estado]));
 
@@ -159,26 +157,6 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     });
     return map;
   }, [states]);
-
-  // Mapa stateId → group para detectar casos resueltos
-  const stateGroups = useMemo(() => {
-    const map: Record<string, string> = {};
-    (states ?? []).forEach((s) => {
-      map[s.id] = s.group;
-    });
-    return map;
-  }, [states]);
-
-  // Casos resueltos (group === "completed") con datos parseados — para la ficha individual
-  const casosResueltos = useMemo(() => {
-    return allIssues
-      .filter((issue) => issue && stateGroups[issue.state_id ?? ""] === "completed")
-      .map((issue) => {
-        const d = extractFromHtml(issue.description_html ?? "");
-        const label = d?.nombre ? `${d.nombre}${d.cedula ? ` · ${d.cedula}` : ""}` : `GCS-${issue.sequence_id}`;
-        return { id: issue.id, label, sequenceId: issue.sequence_id };
-      });
-  }, [allIssues, stateGroups]);
 
   const { fromDate, toDate } = useMemo(() => {
     if (preset !== "all" && preset !== "custom") {
@@ -266,7 +244,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
 
   const handleDownload = async () => {
     if (rows.length === 0) return;
-    setGenerating(true);
+    setGeneratingType("pdf");
     setProgress({ current: 0, total: rows.length });
     try {
       const generatedAtLabel = new Date().toLocaleDateString("es-VE");
@@ -369,128 +347,205 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } finally {
-      setGenerating(false);
+      setGeneratingType(null);
       setProgress(null);
     }
   };
 
-  // ── Ficha individual ────────────────────────────────────────────────────────
+  // ── Excel generation ────────────────────────────────────────────────────────
 
-  const handleDownloadFicha = async () => {
-    if (!selectedFichaId) return;
-    const issue = allIssues.find((i) => i.id === selectedFichaId);
-    if (!issue) return;
-
-    setGeneratingFicha(true);
+  const handleDownloadExcel = async () => {
+    if (rows.length === 0) return;
+    setGeneratingType("excel");
+    setProgress({ current: 0, total: rows.length });
     try {
+      const ExcelJS = (await import("exceljs")).default;
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Reporte");
+
+      const projectName = projectDetails?.name ?? "Proyecto";
       const ws = workspaceSlug?.toString() ?? "";
       const pid = projectId?.toString() ?? "";
-      const projectName = projectDetails?.name ?? "Proyecto";
-      const generatedAtLabel = new Date().toLocaleDateString("es-VE");
 
-      // Logo institucional
-      let fichaLogoUrl: string | null = null;
+      // ── Anchos de columna ──────────────────────────────────────────────────
+      sheet.columns = [
+        { key: "num", width: 22 }, // columna A — logo institucional
+        { key: "nombre", width: 28 },
+        { key: "cedula", width: 14 },
+        { key: "telefono", width: 14 },
+        { key: "direccion", width: 28 },
+        { key: "tipo", width: 18 },
+        { key: "descripcion", width: 32 },
+        { key: "foto", width: 16 },
+        { key: "organismo", width: 22 },
+        { key: "observacion", width: 28 },
+      ];
+
+      // ── Logo ───────────────────────────────────────────────────────────────
+      let logoId: number | null = null;
       try {
-        fichaLogoUrl = await urlToBase64(`${window.location.origin}/venezuela-logo.png`);
+        const logoFull = await urlToBase64(`${window.location.origin}/venezuela-logo.png`);
+        const mimeMatch = logoFull.match(/^data:image\/(\w+);base64,/);
+        const ext = (mimeMatch?.[1] ?? "png") as "png" | "jpeg" | "gif";
+        logoId = workbook.addImage({ base64: logoFull.split(",")[1], extension: ext });
       } catch {
-        fichaLogoUrl = null;
-      }
-      const d = extractFromHtml(issue.description_html ?? "");
-      const photoUrlRaw = extractProfilePhotoFromHtml(issue.description_html ?? "");
-      const stateName = stateNames[issue.state_id ?? ""] ?? "Resuelto";
-      const assignees = (issue.assignee_ids ?? [])
-        .map((id: string) => memberRoot.getUserDetails(id)?.display_name || memberRoot.getUserDetails(id)?.first_name)
-        .filter(Boolean) as string[];
-      const responsable = assignees.length > 0 ? assignees.join(", ") : "Sin asignar";
-
-      // Resolver foto de perfil a base64
-      let resolvedPhotoUrl: string | null = null;
-      if (photoUrlRaw) {
-        try {
-          const raw = getFileURL(photoUrlRaw) ?? photoUrlRaw;
-          const apiUrl = raw.startsWith("http") ? raw : `${window.location.origin}${raw}`;
-          resolvedPhotoUrl = await fetchBase64WithAuth(apiUrl);
-        } catch {
-          resolvedPhotoUrl = null;
-        }
+        logoId = null;
       }
 
-      // Resolver adjuntos imagen como evidencia de entrega
-      const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp"]);
-      let fichaAttachments: FichaAttachment[] = [];
-      try {
-        const rawList = await attachmentService.getIssueAttachments(ws, pid, issue.id);
-        fichaAttachments = await Promise.all(
-          (rawList ?? []).map(async (a) => {
-            const nameExt = (a.attributes?.name ?? "").split(".").pop()?.toLowerCase() ?? "";
-            const urlExt = (a.asset_url ?? "").split("?")[0].split(".").pop()?.toLowerCase() ?? "";
-            const ext = nameExt || urlExt;
-            const isImage = IMAGE_EXTS.has(ext);
-            if (isImage) {
-              try {
-                const url = getFileURL(a.asset_url) ?? a.asset_url;
-                const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url}`;
-                const base64 = await fetchBase64WithAuth(fullUrl);
-                return { name: a.attributes?.name ?? "archivo", isImage: true, base64 };
-              } catch {
-                return { name: a.attributes?.name ?? "archivo", isImage: false };
-              }
-            }
-            return { name: a.attributes?.name ?? "archivo", isImage: false };
-          })
-        );
-      } catch {
-        fichaAttachments = [];
+      // ── Filas de encabezado institucional (filas 1–4) ──────────────────────
+      const HEADER_BG = "FF1e3a5f";
+      const WHITE = "FFFFFFFF";
+
+      sheet.addRow([]); // fila 1 — logo + título proyecto
+      sheet.addRow([]); // fila 2 — jornada / rango
+      sheet.addRow([]); // fila 3 — fecha generación
+      sheet.addRow([]); // fila 4 — separador
+
+      sheet.getRow(1).height = 60;
+      sheet.getRow(2).height = 40;
+      sheet.getRow(3).height = 28;
+      sheet.getRow(4).height = 8;
+
+      // Celda A1:A3 — logo (ocupa las 3 filas del encabezado)
+      sheet.mergeCells("A1:A3");
+      sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "center" };
+      if (logoId !== null) {
+        sheet.addImage(logoId, { tl: { col: 0, row: 0 }, ext: { width: 175, height: 128 } });
       }
 
-      const blob = await pdf(
-        <SocialCaseFichaPDF
-          data={
-            (d ?? {
-              numeroCaso: "",
-              cedula: "",
-              nombre: "",
-              telefono: "",
-              direccion: "",
-              parroquia: "",
-              municipio: "",
-              entidad: "",
-              jornada: "",
-              referencia: "",
-              accionTomada: "",
-              resultado: "",
-              mismoBeneficiario: "true",
-              solicitante: "",
-              nombreBeneficiario: "",
-              cedulaBeneficiario: "",
-              observacionCierre: "",
-              fechaCierre: "",
-            }) as SocialCaseData
+      // B1:J1 — nombre de la actividad (jornada) como TÍTULO principal
+      sheet.mergeCells("B1:J1");
+      const jornadaUnique =
+        rows.length > 0 && rows[0].jornada !== "-" && rows.every((r) => r.jornada === rows[0].jornada)
+          ? rows[0].jornada.toUpperCase()
+          : projectName.toUpperCase();
+      sheet.getCell("B1").value = jornadaUnique;
+      sheet.getCell("B1").font = { bold: true, size: 12, name: "Arial", color: { argb: HEADER_BG } };
+      sheet.getCell("B1").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+
+      // B2:J2 — nombre del proyecto como subtítulo
+      sheet.mergeCells("B2:J2");
+      sheet.getCell("B2").value = projectName.toUpperCase();
+      sheet.getCell("B2").font = { bold: true, size: 12, name: "Arial", color: { argb: HEADER_BG } };
+      sheet.getCell("B2").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+
+      // B3:J3 — fecha de generación
+      sheet.mergeCells("B3:J3");
+      sheet.getCell("B3").value = `FECHA: ${new Date()
+        .toLocaleDateString("es-VE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+        .toUpperCase()}`;
+      sheet.getCell("B3").font = { bold: true, size: 12, name: "Arial", color: { argb: HEADER_BG } };
+      sheet.getCell("B3").alignment = { vertical: "middle", horizontal: "center" };
+
+      // ── Fila de cabecera de tabla (fila 5) ─────────────────────────────────
+      const BORDER_THIN = { style: "thin" as const, color: { argb: "FF9ca3af" } };
+      const tableHeaderRow = sheet.addRow([
+        "N°",
+        "NOMBRES Y APELLIDOS DEL SOLICITANTE",
+        "CÉDULA DE IDENTIDAD",
+        "TELÉFONO",
+        "DIRECCIÓN DE HABITACIÓN",
+        "TIPO DE CASO",
+        "DESCRIPCIÓN DE LA SOLICITUD",
+        "CÉDULA DEL BENEFICIADO",
+        "ORGANISMO COMPETENTE",
+        "OBSERVACIÓN",
+      ]);
+      tableHeaderRow.height = 35;
+      tableHeaderRow.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_BG } };
+        cell.font = { bold: true, color: { argb: WHITE }, size: 12, name: "Arial" };
+        cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        cell.border = { top: BORDER_THIN, bottom: BORDER_THIN, left: BORDER_THIN, right: BORDER_THIN };
+      });
+
+      // ── Filas de datos ─────────────────────────────────────────────────────
+      let done = 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const issue = allIssues.find((is) => is.id === row.id);
+        const d = issue ? extractFromHtml(issue.description_html ?? "") : null;
+        const isEven = i % 2 === 0;
+        const ROW_BG = isEven ? "FFF3F4F6" : "FFFFFFFF";
+        const BORDER_DATA = { style: "thin" as const, color: { argb: "FFd1d5db" } };
+        const ROW_HEIGHT = includePhotos ? 85 : 26;
+        const dataRow = sheet.addRow([
+          row.sequenceId,
+          toUpperOrDash(row.nombre),
+          toUpperOrDash(row.cedula),
+          toUpperOrDash(d?.telefono),
+          toUpperOrDash(d?.direccion),
+          toUpperOrDash(issue?.name),
+          toUpperOrDash(row.referencia),
+          "", // cédula se embebe por encima
+          toUpperOrDash(row.responsable),
+          toUpperOrDash(d?.observacionCierre),
+        ]);
+        dataRow.height = ROW_HEIGHT;
+        dataRow.eachCell((cell, colNum) => {
+          if (colNum !== 8) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ROW_BG } };
           }
-          projectName={projectName}
-          stateName={stateName}
-          sequenceId={issue.sequence_id}
-          responsable={responsable}
-          photoUrl={resolvedPhotoUrl}
-          attachments={fichaAttachments}
-          generatedAtLabel={generatedAtLabel}
-          logoUrl={fichaLogoUrl}
-          startDate={issue.start_date ?? issue.created_at?.slice(0, 10) ?? null}
-        />
-      ).toBlob();
+          cell.font = { size: 12, name: "Arial" };
+          cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+          cell.border = { top: BORDER_DATA, bottom: BORDER_DATA, left: BORDER_DATA, right: BORDER_DATA };
+        });
+        // N° centrado
+        dataRow.getCell(1).alignment = { vertical: "middle", horizontal: "center" };
 
-      const url = URL.createObjectURL(blob);
-      if (openAfter) {
-        window.open(url, "_blank", "noopener,noreferrer");
-      } else {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `ficha-gcs${issue.sequence_id}-${new Date().toISOString().split("T")[0]}.pdf`;
-        a.click();
+        // Foto de cédula del beneficiado (adjunto [CI_BEN] o [CI_SOL])
+        if (includePhotos) {
+          try {
+            // oxlint-disable-next-line no-await-in-loop
+            const attList = await attachmentService.getIssueAttachments(ws, pid, row.id);
+            const isMismo = d?.mismoBeneficiario !== "false";
+            // Si son personas distintas preferir cédula del beneficiario; si son la misma, cédula del solicitante
+            const primaryPrefix = isMismo ? "[CI_SOL]" : "[CI_BEN]";
+            const fallbackPrefix = "[CI_SOL]";
+            const cedulaAtt =
+              attList?.find((a) => a.attributes?.name?.startsWith(primaryPrefix)) ??
+              attList?.find((a) => a.attributes?.name?.startsWith(fallbackPrefix));
+            if (cedulaAtt) {
+              const rawUrl = getFileURL(cedulaAtt.asset_url) ?? cedulaAtt.asset_url;
+              const fullUrl = rawUrl.startsWith("http") ? rawUrl : `${window.location.origin}${rawUrl}`;
+              // oxlint-disable-next-line no-await-in-loop
+              const base64Full = await fetchBase64WithAuth(fullUrl);
+              const mimeM = base64Full.match(/^data:image\/(\w+);base64,/);
+              const ext = (mimeM?.[1] ?? "jpeg") as "png" | "jpeg" | "gif";
+              const imgId = workbook.addImage({ base64: base64Full.split(",")[1], extension: ext });
+              const rowZero = sheet.rowCount - 1; // índice 0-based
+              sheet.addImage(imgId, { tl: { col: 7, row: rowZero }, ext: { width: 110, height: 68 } });
+            }
+          } catch {
+            /* cédula no disponible — celda vacía */
+          }
+        }
+
+        done++;
+        setProgress({ current: done, total: rows.length });
       }
+
+      // ── Descargar ──────────────────────────────────────────────────────────
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = projectName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      a.download = `reporte-${safeName}-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } finally {
-      setGeneratingFicha(false);
+      setGeneratingType(null);
+      setProgress(null);
     }
   };
 
@@ -720,7 +775,8 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="text-12 text-tertiary">
-                Procesando caso {progress.current} de {progress.total}...
+                {generatingType === "excel" ? "Exportando Excel" : "Procesando PDF"} — caso {progress.current} de{" "}
+                {progress.total}...
               </p>
               <p className="text-12 font-medium text-tertiary">
                 {Math.round((progress.current / progress.total) * 100)}%
@@ -735,65 +791,28 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           </div>
         )}
 
-        {/* ── FICHA INDIVIDUAL ─────────────────────────────────────────── */}
-        <div
-          className={cn(
-            "space-y-3 rounded-lg border p-4",
-            casosResueltos.length > 0 ? "border-green-500/40 bg-green-500/5" : "border-subtle bg-surface-2 opacity-60"
-          )}
-        >
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-13 font-medium text-secondary">Ficha técnica individual</p>
-              <p className="text-12 text-tertiary">
-                {casosResueltos.length > 0
-                  ? `${casosResueltos.length} caso${casosResueltos.length !== 1 ? "s" : ""} resuelto${casosResueltos.length !== 1 ? "s" : ""} disponible${casosResueltos.length !== 1 ? "s" : ""}`
-                  : "Sin casos resueltos en el proyecto"}
-              </p>
-            </div>
-          </div>
-
-          {casosResueltos.length > 0 && (
-            <div className="flex items-center gap-3">
-              <select
-                className="focus:border-accent-primary h-9 flex-1 rounded-md border border-subtle bg-surface-1 px-3 text-12 text-secondary focus:outline-none"
-                value={selectedFichaId}
-                onChange={(e) => setSelectedFichaId(e.target.value)}
-                disabled={generatingFicha || loadingIssues}
-              >
-                <option value="">— Seleccionar caso resuelto —</option>
-                {casosResueltos.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <Button
-                type="button"
-                variant="primary"
-                onClick={handleDownloadFicha}
-                disabled={!selectedFichaId || generatingFicha || loadingIssues}
-                loading={generatingFicha}
-              >
-                {!generatingFicha && <FileDown className="mr-2 size-4" />}
-                Generar ficha
-              </Button>
-            </div>
-          )}
-        </div>
-
         <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={generating || generatingFicha}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={generating}>
             Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleDownloadExcel}
+            disabled={rows.length === 0 || generating || loadingIssues}
+            loading={generatingType === "excel"}
+          >
+            {generatingType !== "excel" && <FileSpreadsheet className="mr-2 size-4" />}
+            {loadingIssues ? "Cargando..." : `Exportar Excel (${rows.length})`}
           </Button>
           <Button
             type="button"
             variant="primary"
             onClick={handleDownload}
             disabled={rows.length === 0 || generating || loadingIssues}
-            loading={generating || loadingIssues}
+            loading={generatingType === "pdf" || loadingIssues}
           >
-            {!generating && !loadingIssues && <FileDown className="mr-2 size-4" />}
+            {generatingType !== "pdf" && !loadingIssues && <FileDown className="mr-2 size-4" />}
             {loadingIssues ? "Cargando casos..." : openAfter ? "Generar y abrir PDF" : `Descargar PDF (${rows.length})`}
           </Button>
         </div>

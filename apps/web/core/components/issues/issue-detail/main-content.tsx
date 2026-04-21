@@ -4,8 +4,10 @@
  * See the LICENSE file for details.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react";
+import { FileDown } from "lucide-react";
+import { Button } from "@plane/propel/button";
 // plane imports
 import type { EditorRefApi } from "@plane/editor";
 import type { TNameDescriptionLoader } from "@plane/types";
@@ -42,6 +44,7 @@ import {
   injectProfilePhotoIntoHtml,
 } from "@/components/issues/social-case-form";
 import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
+import { useSocialCaseFichaExport } from "@/hooks/use-social-case-ficha-export";
 import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
 import { FileService } from "@/services/file.service";
 
@@ -86,6 +89,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const issue = issueId ? getIssueById(issueId) : undefined;
   const currentState = issue?.state_id ? getStateById(issue.state_id) : undefined;
   const { handleStateChange } = useSocialCaseStateChange({ workspaceSlug, projectId, issueId, issueOperations });
+  const { exportFicha, isExporting } = useSocialCaseFichaExport({ workspaceSlug, projectId, issueId });
   const projectStates = getProjectStates(projectId);
   // El flujo de casos sociales solo aplica si el proyecto tiene los tres estados esperados.
   // Esto evita que proyectos genéricos con nombres de estado similares activen la UI de casos.
@@ -93,6 +97,10 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
     projectStates?.some((s) => s.name?.toLowerCase().includes("proceso")) &&
     projectStates?.some((s) => s.name?.toLowerCase().includes("articulaci")) &&
     projectStates?.some((s) => s.name?.toLowerCase().includes("recib"))
+  );
+  const isSocialCase = useMemo(
+    () => hasSocialCaseWorkflow && extractFromHtml(issue?.description_html ?? "") !== null,
+    [hasSocialCaseWorkflow, issue?.description_html]
   );
   const isClosed = currentState?.group === "completed";
   const isSinResolucion = currentState?.group === "cancelled";
@@ -270,6 +278,22 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           }}
           onSavingChange={(status) => setIsSubmitting(status)}
         />
+
+        {isSocialCase && (
+          <div className="flex">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={exportFicha}
+              disabled={isExporting}
+              loading={isExporting}
+            >
+              {!isExporting && <FileDown className="mr-1.5 size-3.5" />}
+              Exportar PDF
+            </Button>
+          </div>
+        )}
 
         <DescriptionInput
           issueSequenceId={issue.sequence_id}

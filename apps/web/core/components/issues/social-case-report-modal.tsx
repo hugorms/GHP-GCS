@@ -529,11 +529,12 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const pid = projectId?.toString() ?? "";
 
       // ── Anchos de columna ──────────────────────────────────────────────────
+      // Columna A = N° (angosta), B y C se usan junto con A para el logo en fila 1
       sheet.columns = [
-        { key: "num", width: 22 }, // columna A — logo institucional
+        { key: "num", width: 6 },
         { key: "nombre", width: 28 },
         { key: "cedula", width: 14 },
-        { key: "telefono", width: 14 },
+        { key: "telefono", width: 18 },
         { key: "direccion", width: 28 },
         { key: "tipo", width: 18 },
         { key: "descripcion", width: 32 },
@@ -553,50 +554,43 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         logoId = null;
       }
 
-      // ── Filas de encabezado institucional (filas 1–4) ──────────────────────
+      // ── Filas de encabezado (filas 1–3) ───────────────────────────────────
       const HEADER_BG = "FF1e3a5f";
       const WHITE = "FFFFFFFF";
 
-      sheet.addRow([]); // fila 1 — logo + título proyecto
-      sheet.addRow([]); // fila 2 — jornada / rango
-      sheet.addRow([]); // fila 3 — fecha generación
-      sheet.addRow([]); // fila 4 — separador
+      sheet.addRow([]); // fila 1 — logo (A1:C1)
+      sheet.addRow([]); // fila 2 — nombre de la actividad
+      sheet.addRow([]); // fila 3 — fecha del reporte
 
-      sheet.getRow(1).height = 60;
+      sheet.getRow(1).height = 70;
       sheet.getRow(2).height = 40;
       sheet.getRow(3).height = 28;
-      sheet.getRow(4).height = 8;
 
-      // Celda A1:A3 — logo (ocupa las 3 filas del encabezado)
-      sheet.mergeCells("A1:A3");
+      // A1:J1 — logo ocupa toda la fila 1
+      sheet.mergeCells("A1:J1");
       sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "center" };
       if (logoId !== null) {
-        sheet.addImage(logoId, { tl: { col: 0, row: 0 }, ext: { width: 175, height: 128 } });
+        // tl = inicio columna A, fila 1 — br = mitad columna G, fin fila 1
+        sheet.addImage(logoId, { tl: { col: 0, row: 0 }, br: { col: 6.5, row: 1 } });
       }
 
-      // B1:J1 — nombre de la actividad (jornada) como TÍTULO principal
-      sheet.mergeCells("B1:J1");
+      // A2:J2 — nombre de la actividad (jornada)
+      sheet.mergeCells("A2:J2");
       const jornadaUnique =
         rows.length > 0 && rows[0].jornada !== "-" && rows.every((r) => r.jornada === rows[0].jornada)
           ? rows[0].jornada.toUpperCase()
           : projectName.toUpperCase();
-      sheet.getCell("B1").value = jornadaUnique;
-      sheet.getCell("B1").font = { bold: true, size: 12, name: "Arial", color: { argb: HEADER_BG } };
-      sheet.getCell("B1").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      sheet.getCell("A2").value = jornadaUnique;
+      sheet.getCell("A2").font = { bold: true, size: 18, name: "Arial", color: { argb: "FF000000" } };
+      sheet.getCell("A2").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-      // B2:J2 — nombre del proyecto como subtítulo
-      sheet.mergeCells("B2:J2");
-      sheet.getCell("B2").value = projectName.toUpperCase();
-      sheet.getCell("B2").font = { bold: true, size: 12, name: "Arial", color: { argb: HEADER_BG } };
-      sheet.getCell("B2").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
-
-      // B3:J3 — fecha de generación
-      sheet.mergeCells("B3:J3");
-      sheet.getCell("B3").value = `FECHA: ${new Date()
+      // A3:J3 — fecha del reporte
+      sheet.mergeCells("A3:J3");
+      sheet.getCell("A3").value = `FECHA: ${new Date()
         .toLocaleDateString("es-VE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
         .toUpperCase()}`;
-      sheet.getCell("B3").font = { bold: true, size: 12, name: "Arial", color: { argb: HEADER_BG } };
-      sheet.getCell("B3").alignment = { vertical: "middle", horizontal: "center" };
+      sheet.getCell("A3").font = { bold: true, size: 16, name: "Arial", color: { argb: "FF000000" } };
+      sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
 
       // ── Fila de cabecera de tabla (fila 5) ─────────────────────────────────
       const BORDER_THIN = { style: "thin" as const, color: { argb: "FF9ca3af" } };
@@ -632,7 +626,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         const BORDER_DATA = { style: "thin" as const, color: { argb: "FFd1d5db" } };
         const ROW_HEIGHT = includePhotos ? 85 : 26;
         const dataRow = sheet.addRow([
-          row.sequenceId,
+          toUpperOrDash(d?.numeroCaso),
           toUpperOrDash(row.nombre),
           toUpperOrDash(row.cedula),
           toUpperOrDash(d?.telefono),

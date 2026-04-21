@@ -1,7 +1,7 @@
 // rebuild
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
-import { FileDown, FileSpreadsheet } from "lucide-react";
+import { FileDown, FileSpreadsheet, ChevronDown, X } from "lucide-react";
 import { observer } from "mobx-react";
 import { pdf } from "@react-pdf/renderer";
 import { Button } from "@plane/propel/button";
@@ -93,6 +93,147 @@ async function fetchBase64WithAuth(apiUrl: string): Promise<string> {
   return urlToBase64(url);
 }
 
+// ── FilterDropdown ────────────────────────────────────────────────────────────
+
+type FilterDropdownProps = {
+  label: string;
+  options: readonly string[];
+  selected: string[];
+  onChange: (value: string) => void;
+  onClear: () => void;
+  disabled?: boolean;
+};
+
+function FilterDropdown({ label, options, selected, onChange, onClear, disabled }: FilterDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  // Limpiar búsqueda al cerrar
+  useEffect(() => {
+    if (!open) setSearch("");
+  }, [open]);
+
+  const filtered = useMemo(
+    () => options.filter((o) => o.toLowerCase().includes(search.toLowerCase())),
+    [options, search]
+  );
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-2 rounded-md border px-3 py-1.5 text-12 font-medium transition-colors",
+          selected.length > 0
+            ? "border-accent-primary bg-accent-primary/10 text-accent-primary"
+            : "border-subtle bg-surface-2 text-secondary hover:bg-layer-1",
+          disabled && "cursor-not-allowed opacity-60"
+        )}
+      >
+        <span>{label}</span>
+        {selected.length > 0 && (
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-primary px-1 text-10 font-semibold text-white">
+            {selected.length}
+          </span>
+        )}
+        {selected.length > 0 ? (
+          <X
+            className="h-3 w-3 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
+          />
+        ) : (
+          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")} />
+        )}
+      </button>
+
+      {open && (
+        <div className="shadow-lg absolute top-full left-0 z-50 mt-1.5 w-56 rounded-lg border border-subtle bg-surface-1">
+          {/* Search */}
+          <div className="border-b border-subtle px-3 py-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar..."
+              className="w-full bg-transparent text-12 text-secondary outline-none placeholder:text-tertiary"
+            />
+          </div>
+          {/* Options */}
+          <div className="vertical-scrollbar scrollbar-sm max-h-52 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-2 text-12 text-tertiary">Sin resultados</p>
+            ) : (
+              filtered.map((opt) => {
+                const isSelected = selected.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => onChange(opt)}
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-12 text-secondary transition-colors hover:bg-surface-2"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border transition-colors",
+                        isSelected ? "border-accent-primary bg-accent-primary" : "border-custom-border-300"
+                      )}
+                    >
+                      {isSelected && (
+                        <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                          <path
+                            d="M1.5 5L4 7.5L8.5 2.5"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="truncate">{opt}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          {/* Footer */}
+          {selected.length > 0 && (
+            <div className="border-t border-subtle px-3 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onClear();
+                  setOpen(false);
+                }}
+                className="text-11 text-accent-primary hover:underline"
+              >
+                Limpiar selección ({selected.length})
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -124,6 +265,9 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
   const [estadosFilter, setEstadosFilter] = useState<string[]>([]); // [] = Todos
   const toggleEstadoModal = (estado: string) =>
     setEstadosFilter((prev) => (prev.includes(estado) ? prev.filter((e) => e !== estado) : [...prev, estado]));
+  const [actividadFilter, setActividadFilter] = useState<string[]>([]);
+  const toggleActividadFilter = (act: string) =>
+    setActividadFilter((prev) => (prev.includes(act) ? prev.filter((a) => a !== act) : [...prev, act]));
 
   // Fix: los issues del issueMap NO traen description_html (solo el detalle lo carga).
   // Fetacheamos directamente del API para tener el HTML completo con la ficha social.
@@ -172,6 +316,17 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     return { fromDate: null, toDate: null };
   }, [preset, customFrom, customTo]);
 
+  const actividadesUnicas = useMemo(() => {
+    const set = new Set<string>();
+    for (const issue of allIssues) {
+      const d = extractFromHtml(issue?.description_html ?? "");
+      const jornada = d?.jornada?.trim();
+      if (jornada) set.add(jornada);
+    }
+    // oxlint-disable-next-line unicorn/no-array-sort
+    return [...set].sort((a, b) => a.localeCompare(b, "es"));
+  }, [allIssues]);
+
   const { rows, byState, byJornada, conResultado } = useMemo(() => {
     const parsedRows: ParsedIssueRow[] = [];
     const parsedByState: Record<string, number> = {};
@@ -195,6 +350,12 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       if (estadosFilter.length > 0) {
         const entidad = d?.entidad?.trim().toLowerCase() ?? "";
         if (!estadosFilter.some((e) => e.toLowerCase() === entidad)) continue;
+      }
+
+      // Filtro por actividad (jornada)
+      if (actividadFilter.length > 0) {
+        const jornada = d?.jornada?.trim() ?? "";
+        if (!actividadFilter.includes(jornada)) continue;
       }
       const photoUrl = extractProfilePhotoFromHtml(issue.description_html ?? "");
       const stateName = stateNames[issue.state_id ?? ""] ?? "Sin estado";
@@ -231,7 +392,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
     }
 
     return { rows: parsedRows, byState: parsedByState, byJornada: parsedByJornada, conResultado: parsedConResultado };
-  }, [allIssues, stateNames, fromDate, toDate, memberRoot, estadosFilter]);
+  }, [allIssues, stateNames, fromDate, toDate, memberRoot, estadosFilter, actividadFilter]);
 
   const dateRangeLabel = useMemo(() => {
     if (!fromDate && !toDate) return "Todos los registros";
@@ -638,63 +799,26 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           </div>
         )}
 
-        {/* Filtro por estado de Venezuela */}
+        {/* Filtros */}
         <div className="space-y-2">
-          <p className="text-12 text-tertiary">Filtrar por estado</p>
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-1.5">
-              {/* Chip "Todos" — limpia la selección */}
-              <button
-                type="button"
-                onClick={() => setEstadosFilter([])}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-11 font-medium transition-colors",
-                  estadosFilter.length === 0
-                    ? "border-accent-primary bg-accent-primary text-white"
-                    : "border-subtle bg-surface-2 text-tertiary hover:bg-layer-1 hover:text-secondary"
-                )}
-              >
-                Todos
-              </button>
-              {VENEZUELA_ESTADOS.map((estado) => {
-                const selected = estadosFilter.includes(estado);
-                return (
-                  <button
-                    key={estado}
-                    type="button"
-                    onClick={() => toggleEstadoModal(estado)}
-                    className={cn(
-                      "flex items-center gap-1 rounded-full border px-3 py-1 text-11 font-medium transition-colors",
-                      selected
-                        ? "border-accent-primary bg-accent-primary text-white"
-                        : "border-subtle bg-surface-2 text-tertiary hover:bg-layer-1 hover:text-secondary"
-                    )}
-                  >
-                    {selected && (
-                      <svg className="h-2.5 w-2.5" viewBox="0 0 10 10" fill="none">
-                        <path
-                          d="M1.5 5L4 7.5L8.5 2.5"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
-                    {estado}
-                  </button>
-                );
-              })}
-            </div>
-            {estadosFilter.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setEstadosFilter([])}
-                className="text-11 text-accent-primary hover:underline"
-              >
-                Limpiar selección ({estadosFilter.length})
-              </button>
-            )}
+          <p className="text-12 text-tertiary">Filtros</p>
+          <div className="flex flex-wrap gap-2">
+            <FilterDropdown
+              label="Estado del país"
+              options={VENEZUELA_ESTADOS}
+              selected={estadosFilter}
+              onChange={toggleEstadoModal}
+              onClear={() => setEstadosFilter([])}
+              disabled={generating}
+            />
+            <FilterDropdown
+              label="Actividad"
+              options={actividadesUnicas}
+              selected={actividadFilter}
+              onChange={toggleActividadFilter}
+              onClear={() => setActividadFilter([])}
+              disabled={generating}
+            />
           </div>
         </div>
 
@@ -702,6 +826,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           <p className="text-12 text-tertiary">
             {dateRangeLabel}
             {estadosFilter.length > 0 ? ` · ${estadosFilter.join(", ")}` : ""}
+            {actividadFilter.length > 0 ? ` · ${actividadFilter.join(", ")}` : ""}
           </p>
           {loadingIssues ? (
             <p className="mt-3 text-12 text-tertiary">Cargando casos...</p>

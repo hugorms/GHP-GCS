@@ -65,6 +65,8 @@ type Props = {
   onPhotoUpload?: (file: File) => Promise<string>;
   /** Sincroniza el estado de guardado con el indicador global del issue ("submitting" | "submitted" | "saved") */
   onSavingChange?: (status: "submitting" | "submitted" | "saved") => void;
+  /** Lista de actividades ya usadas en el proyecto para mostrar como sugerencias en el campo Actividad */
+  actividadesDisponibles?: string[];
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -273,12 +275,14 @@ export const SocialCaseForm = ({
   onSlotUpload,
   initialSlotFiles = {},
   onPhotoUpload,
+  actividadesDisponibles = [],
 }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [jornadaNueva, setJornadaNueva] = useState(false);
   const [slotUploading, setSlotUploading] = useState<Record<string, boolean>>({});
   // prefix → nombre del archivo subido (persiste en sesión)
   const [slotFiles, setSlotFiles] = useState<Record<string, string>>(initialSlotFiles);
@@ -746,15 +750,58 @@ export const SocialCaseForm = ({
               <label htmlFor="sc-jornada" className={labelClass}>
                 Actividad
               </label>
-              <input
-                id="sc-jornada"
-                disabled={!isEditable}
-                autoCapitalize="sentences"
-                className={fc(isEditable)}
-                placeholder="Nombre de la actividad"
-                value={data.jornada}
-                onChange={(e) => update("jornada", e.target.value)}
-              />
+              {actividadesDisponibles.length > 0 ? (
+                <>
+                  <select
+                    id="sc-jornada"
+                    disabled={!isEditable}
+                    className={fc(isEditable)}
+                    value={
+                      jornadaNueva || (data.jornada && !actividadesDisponibles.includes(data.jornada))
+                        ? "__nueva__"
+                        : data.jornada
+                    }
+                    onChange={(e) => {
+                      if (e.target.value === "__nueva__") {
+                        // Solo activar el input — NO limpiar jornada para evitar
+                        // que el auto-save dispare antes de que el usuario escriba
+                        setJornadaNueva(true);
+                      } else {
+                        setJornadaNueva(false);
+                        update("jornada", e.target.value);
+                      }
+                    }}
+                  >
+                    <option value="">-- Seleccionar actividad --</option>
+                    {actividadesDisponibles.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                    <option value="__nueva__">+ Nueva actividad...</option>
+                  </select>
+                  {(jornadaNueva || (Boolean(data.jornada) && !actividadesDisponibles.includes(data.jornada))) && (
+                    <input
+                      disabled={!isEditable}
+                      autoCapitalize="sentences"
+                      className={`${fc(isEditable)} mt-2`}
+                      placeholder="Nombre de la nueva actividad"
+                      value={data.jornada}
+                      onChange={(e) => update("jornada", e.target.value)}
+                    />
+                  )}
+                </>
+              ) : (
+                <input
+                  id="sc-jornada"
+                  disabled={!isEditable}
+                  autoCapitalize="sentences"
+                  className={fc(isEditable)}
+                  placeholder="Nombre de la actividad"
+                  value={data.jornada}
+                  onChange={(e) => update("jornada", e.target.value)}
+                />
+              )}
             </div>
           </div>
 

@@ -530,19 +530,19 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const ws = workspaceSlug?.toString() ?? "";
       const pid = projectId?.toString() ?? "";
 
-      // ── Anchos de columna ──────────────────────────────────────────────────
-      // Columna A = N° (angosta), B y C se usan junto con A para el logo en fila 1
+      // ── Anchos de columna (fijos, ajustados al ancho de pantalla) ──────────
+      const COL_WIDTHS = [6, 28, 14, 18, 28, 18, 32, 16, 22, 28];
       sheet.columns = [
-        { key: "num", width: 6 },
-        { key: "nombre", width: 28 },
-        { key: "cedula", width: 14 },
-        { key: "telefono", width: 18 },
-        { key: "direccion", width: 28 },
-        { key: "tipo", width: 18 },
-        { key: "descripcion", width: 32 },
-        { key: "foto", width: 16 },
-        { key: "organismo", width: 22 },
-        { key: "observacion", width: 28 },
+        { key: "num", width: COL_WIDTHS[0] },
+        { key: "nombre", width: COL_WIDTHS[1] },
+        { key: "cedula", width: COL_WIDTHS[2] },
+        { key: "telefono", width: COL_WIDTHS[3] },
+        { key: "direccion", width: COL_WIDTHS[4] },
+        { key: "tipo", width: COL_WIDTHS[5] },
+        { key: "descripcion", width: COL_WIDTHS[6] },
+        { key: "foto", width: COL_WIDTHS[7] },
+        { key: "organismo", width: COL_WIDTHS[8] },
+        { key: "observacion", width: COL_WIDTHS[9] },
       ];
 
       // ── Logo ───────────────────────────────────────────────────────────────
@@ -639,6 +639,20 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         cell.border = { top: BORDER_THIN, bottom: BORDER_THIN, left: BORDER_THIN, right: BORDER_THIN };
       });
 
+      // ── Altura dinámica de filas (vertical auto-fit) ───────────────────────
+      const LINE_HEIGHT_PX = 15;
+      const calcRowHeight = (vals: string[]) => {
+        let maxLines = 1;
+        vals.forEach((val, idx) => {
+          if (idx === 7) return; // columna de foto — no contar texto
+          const charsPerLine = Math.max(1, COL_WIDTHS[idx] - 2);
+          const lines = Math.ceil(val.length / charsPerLine);
+          maxLines = Math.max(maxLines, lines);
+        });
+        const minHeight = includePhotos ? 85 : 20;
+        return Math.max(minHeight, maxLines * LINE_HEIGHT_PX);
+      };
+
       // ── Filas de datos ─────────────────────────────────────────────────────
       let done = 0;
 
@@ -649,8 +663,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         const isEven = i % 2 === 0;
         const ROW_BG = isEven ? "FFF3F4F6" : "FFFFFFFF";
         const BORDER_DATA = { style: "thin" as const, color: { argb: "FFd1d5db" } };
-        const ROW_HEIGHT = includePhotos ? 85 : 26;
-        const dataRow = sheet.addRow([
+        const cellValues = [
           toUpperOrDash(d?.numeroCaso),
           toUpperOrDash(row.nombre),
           toUpperOrDash(row.cedula),
@@ -658,11 +671,12 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           toUpperOrDash(d?.direccion),
           toUpperOrDash(issue?.name),
           toUpperOrDash(row.referencia),
-          "", // cédula se embebe por encima
+          "",
           toUpperOrDash(row.responsable),
           toUpperOrDash(d?.observacionCierre),
-        ]);
-        dataRow.height = ROW_HEIGHT;
+        ];
+        const dataRow = sheet.addRow(cellValues);
+        dataRow.height = calcRowHeight(cellValues);
         dataRow.eachCell((cell, colNum) => {
           if (colNum !== 8) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ROW_BG } };

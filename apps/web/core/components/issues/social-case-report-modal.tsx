@@ -679,7 +679,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ROW_BG } };
           }
           cell.font = { size: 12, name: "Arial" };
-          cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+          cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
           cell.border = { top: BORDER_DATA, bottom: BORDER_DATA, left: BORDER_DATA, right: BORDER_DATA };
         });
         // N° centrado
@@ -720,7 +720,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       sheet.columns.forEach((col, idx) => {
         if (idx === 7) return; // foto: ancho fijo ya asignado
         const len = colMaxLen[idx] ?? 10;
-        col.width = Math.min(Math.max(Math.ceil(len * 1.1) + 2, 6), 50);
+        col.width = Math.min(Math.max(Math.ceil(len * 0.95) + 1, 6), 42);
       });
 
       // ── Descargar ──────────────────────────────────────────────────────────

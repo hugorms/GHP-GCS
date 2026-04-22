@@ -627,7 +627,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         "ORGANISMO COMPETENTE",
         "OBSERVACIÓN",
       ]);
-      tableHeaderRow.height = 35;
+      tableHeaderRow.height = 44; // 59 px × 0.75 = 44 pt
       tableHeaderRow.eachCell((cell) => {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_BG } };
         cell.font = { bold: true, color: { argb: WHITE }, size: 12, name: "Arial" };

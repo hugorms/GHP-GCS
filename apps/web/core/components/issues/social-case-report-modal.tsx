@@ -672,13 +672,12 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           try {
             // oxlint-disable-next-line no-await-in-loop
             const attList = await attachmentService.getIssueAttachments(ws, pid, row.id);
-            const isMismo = d?.mismoBeneficiario !== "false";
-            // Si son personas distintas preferir cédula del beneficiario; si son la misma, cédula del solicitante
-            const primaryPrefix = isMismo ? "[CI_SOL]" : "[CI_BEN]";
-            const fallbackPrefix = "[CI_SOL]";
+            // Buscar siempre [CI_BEN] primero, luego [CI_SOL] como fallback.
+            // Cuando mismoBeneficiario=true el botón [CI_SOL] se oculta y la cédula
+            // del solicitante se sube en [CI_BEN], así que no depender del toggle.
             const cedulaAtt =
-              attList?.find((a) => a.attributes?.name?.startsWith(primaryPrefix)) ??
-              attList?.find((a) => a.attributes?.name?.startsWith(fallbackPrefix));
+              attList?.find((a) => a.attributes?.name?.startsWith("[CI_BEN]")) ??
+              attList?.find((a) => a.attributes?.name?.startsWith("[CI_SOL]"));
             if (cedulaAtt) {
               const rawUrl = getFileURL(cedulaAtt.asset_url) ?? cedulaAtt.asset_url;
               const fullUrl = rawUrl.startsWith("http") ? rawUrl : `${window.location.origin}${rawUrl}`;

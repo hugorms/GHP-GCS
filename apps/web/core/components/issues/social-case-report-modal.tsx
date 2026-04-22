@@ -556,19 +556,17 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         logoId = null;
       }
 
-      // ── Filas de encabezado (filas 1–4) ───────────────────────────────────
+      // ── Filas de encabezado (filas 1–3) ───────────────────────────────────
       const HEADER_BG = "FF1e3a5f";
       const WHITE = "FFFFFFFF";
 
       sheet.addRow([]); // fila 1 — logo
       sheet.addRow([]); // fila 2 — nombre de la actividad
       sheet.addRow([]); // fila 3 — fecha de inicio del primer caso
-      sheet.addRow([]); // fila 4 — fecha de generación del reporte
 
       sheet.getRow(1).height = 70;
       sheet.getRow(2).height = 40;
       sheet.getRow(3).height = 28;
-      sheet.getRow(4).height = 24;
 
       // A1:J1 — logo ocupa toda la fila 1
       sheet.mergeCells("A1:J1");
@@ -609,15 +607,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       sheet.getCell("A3").font = { bold: true, size: 16, name: "Arial", color: { argb: "FF000000" } };
       sheet.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
 
-      // A4:J4 — fecha de generación del reporte
-      sheet.mergeCells("A4:J4");
-      sheet.getCell("A4").value = `FECHA DE GENERACIÓN: ${new Date()
-        .toLocaleDateString("es-VE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
-        .toUpperCase()}`;
-      sheet.getCell("A4").font = { size: 11, name: "Arial", color: { argb: "FF000000" } };
-      sheet.getCell("A4").alignment = { vertical: "middle", horizontal: "center" };
-
-      // ── Fila de cabecera de tabla (fila 5) ─────────────────────────────────
+      // ── Fila de cabecera de tabla (fila 4) ─────────────────────────────────
       const BORDER_THIN = { style: "thin" as const, color: { argb: "FF9ca3af" } };
       const tableHeaderRow = sheet.addRow([
         "N°",
@@ -640,17 +630,19 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       });
 
       // ── Altura dinámica de filas (vertical auto-fit) ───────────────────────
-      const LINE_HEIGHT_PX = 15;
+      // Excel row height en puntos; Arial 12 necesita ~18pt por línea.
+      // El ancho de columna ExcelJS (caracteres) ≈ col_width * 1.2 chars reales.
+      const PT_PER_LINE = 18;
       const calcRowHeight = (vals: string[]) => {
         let maxLines = 1;
         vals.forEach((val, idx) => {
           if (idx === 7) return; // columna de foto — no contar texto
-          const charsPerLine = Math.max(1, COL_WIDTHS[idx] - 2);
+          const charsPerLine = Math.max(1, Math.floor(COL_WIDTHS[idx] * 1.2) - 2);
           const lines = Math.ceil(val.length / charsPerLine);
           maxLines = Math.max(maxLines, lines);
         });
-        const minHeight = includePhotos ? 85 : 20;
-        return Math.max(minHeight, maxLines * LINE_HEIGHT_PX);
+        const minHeight = includePhotos ? 85 : 22;
+        return Math.max(minHeight, maxLines * PT_PER_LINE);
       };
 
       // ── Filas de datos ─────────────────────────────────────────────────────

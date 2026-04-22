@@ -629,21 +629,8 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         cell.border = { top: BORDER_THIN, bottom: BORDER_THIN, left: BORDER_THIN, right: BORDER_THIN };
       });
 
-      // ── Altura dinámica de filas (vertical auto-fit) ───────────────────────
-      // Excel row height en puntos; Arial 12 necesita ~18pt por línea.
-      // El ancho de columna ExcelJS (caracteres) ≈ col_width * 1.2 chars reales.
-      const PT_PER_LINE = 18;
-      const calcRowHeight = (vals: string[]) => {
-        let maxLines = 1;
-        vals.forEach((val, idx) => {
-          if (idx === 7) return; // columna de foto — no contar texto
-          const charsPerLine = Math.max(1, Math.floor(COL_WIDTHS[idx] * 1.2) - 2);
-          const lines = Math.ceil(val.length / charsPerLine);
-          maxLines = Math.max(maxLines, lines);
-        });
-        const minHeight = includePhotos ? 85 : 22;
-        return Math.max(minHeight, maxLines * PT_PER_LINE);
-      };
+      // Sin fotos: no forzar height → Excel auto-calcula al abrir (sin customHeight="1")
+      // Con fotos: forzar mínimo 85pt para que quepa la imagen de cédula
 
       // ── Filas de datos ─────────────────────────────────────────────────────
       let done = 0;
@@ -668,7 +655,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           toUpperOrDash(d?.observacionCierre),
         ];
         const dataRow = sheet.addRow(cellValues);
-        dataRow.height = calcRowHeight(cellValues);
+        if (includePhotos) dataRow.height = 85;
         dataRow.eachCell((cell, colNum) => {
           if (colNum !== 8) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ROW_BG } };

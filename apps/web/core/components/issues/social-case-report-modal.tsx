@@ -640,11 +640,17 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       // 1 cm = 28.35 pt → 3 cm ≈ 85 pt
       const PHOTO_ROW_H_PT = Math.ceil((PHOTO_H_PX / 96) * 2.54 * 28.35); // px→cm→pt
 
-      // ── Filas de datos ─────────────────────────────────────────────────────
+      // ── Filas de datos (orden ascendente: más antiguo primero) ────────────
+      // oxlint-disable-next-line unicorn/no-array-sort
+      const sortedRows = [...rows].sort((a, b) => {
+        const ia = allIssues.find((is) => is.id === a.id);
+        const ib = allIssues.find((is) => is.id === b.id);
+        return (ia?.created_at ?? "").localeCompare(ib?.created_at ?? "");
+      });
       let done = 0;
 
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
+      for (let i = 0; i < sortedRows.length; i++) {
+        const row = sortedRows[i];
         const issue = allIssues.find((is) => is.id === row.id);
         const d = issue ? extractFromHtml(issue.description_html ?? "") : null;
         const isEven = i % 2 === 0;

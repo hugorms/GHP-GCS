@@ -530,12 +530,22 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const ws = workspaceSlug?.toString() ?? "";
       const pid = projectId?.toString() ?? "";
 
-      // ── Anchos de columna — se calcularán por contenido al final ──────────
-      // Foto de cédula: 5 cm × 3 cm → 189 × 113 px a 96 DPI
+      // ── Constantes de imágenes ────────────────────────────────────────────
+      // Cédula: 5 cm × 3 cm → 189 × 113 px a 96 DPI
       const PHOTO_W_PX = 189;
       const PHOTO_H_PX = 113;
-      // Columna foto (índice 7): ancho fijo para alojar la imagen (≈27 unidades Excel)
-      const PHOTO_COL_W = 27;
+      const PHOTO_COL_W = 27; // idx 7
+      // Reseña fotográfica: 3 cm × 2 cm por imagen, grilla de 2 columnas
+      const RESENA_IMG_W = 113; // 3 cm
+      const RESENA_IMG_H = 76; // 2 cm
+      const RESENA_COL_IDX = 8; // índice 0-based de la columna reseña
+      const RESENA_COL_W = 36; // ancho para 2 imágenes lado a lado
+      const RESENA_COL_W_PX = RESENA_COL_W * 7; // px estimados
+      const RESENA_GAP = 3; // px de separación entre imágenes
+      const IMAGE_EXTS_XLS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp"]);
+      const SLOT_PREFIXES_XLS = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
+
+      // ── Columnas (11 total) ───────────────────────────────────────────────
       sheet.columns = [
         { key: "num" },
         { key: "nombre" },
@@ -545,11 +555,13 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         { key: "tipo" },
         { key: "descripcion" },
         { key: "foto", width: PHOTO_COL_W },
+        { key: "resena", width: RESENA_COL_W },
         { key: "organismo" },
         { key: "observacion" },
       ];
       // Longitud máxima por columna — inicializada con los encabezados de tabla
-      const colMaxLen = [2, 38, 20, 14, 26, 14, 28, 0, 22, 24];
+      // idx 7 y 8 son fotos → 0
+      const colMaxLen = [2, 38, 20, 14, 26, 14, 28, 0, 0, 22, 24];
 
       // ── Logo ───────────────────────────────────────────────────────────────
       let logoId: number | null = null;
@@ -574,8 +586,8 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       sheet.getRow(2).height = 40;
       sheet.getRow(3).height = 28;
 
-      // A1:J1 — logo ocupa toda la fila 1
-      sheet.mergeCells("A1:J1");
+      // A1:K1 — logo ocupa toda la fila 1 (11 columnas)
+      sheet.mergeCells("A1:K1");
       sheet.getCell("A1").alignment = { vertical: "middle", horizontal: "center" };
       if (logoId !== null) {
         // tl = inicio columna A, fila 1 — br = mitad columna G, fin fila 1
@@ -583,8 +595,8 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         sheet.addImage(logoId, { tl: { col: 0, row: 0 } as any, br: { col: 6.5, row: 1 } as any });
       }
 
-      // A2:J2 — nombre de la actividad (jornada)
-      sheet.mergeCells("A2:J2");
+      // A2:K2 — nombre de la actividad (jornada)
+      sheet.mergeCells("A2:K2");
       const jornadaUnique =
         rows.length > 0 && rows[0].jornada !== "-" && rows.every((r) => r.jornada === rows[0].jornada)
           ? rows[0].jornada.toUpperCase()
@@ -593,8 +605,8 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       sheet.getCell("A2").font = { bold: true, size: 18, name: "Arial", color: { argb: "FF000000" } };
       sheet.getCell("A2").alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-      // A3:J3 — fecha de inicio del primer caso de la actividad
-      sheet.mergeCells("A3:J3");
+      // A3:K3 — fecha de inicio del primer caso de la actividad
+      sheet.mergeCells("A3:K3");
       const firstCaseStartDate = rows
         .map(
           (r) =>
@@ -624,6 +636,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         "TIPO DE CASO",
         "DESCRIPCIÓN DE LA SOLICITUD",
         "CÉDULA DE IDENTIDAD",
+        "RESEÑA FOTOGRÁFICA",
         "ORGANISMO COMPETENTE",
         "OBSERVACIÓN",
       ]);
@@ -657,42 +670,43 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         const ROW_BG = isEven ? "FFF3F4F6" : "FFFFFFFF";
         const BORDER_DATA = { style: "thin" as const, color: { argb: "FFd1d5db" } };
         const cellValues = [
-          toUpperOrDash(d?.numeroCaso),
-          toUpperOrDash(row.nombre),
-          toUpperOrDash(row.cedula),
-          toUpperOrDash(d?.telefono),
-          toUpperOrDash(d?.direccion),
-          toUpperOrDash(issue?.name),
-          toUpperOrDash(row.referencia),
-          "",
-          toUpperOrDash(row.responsable),
-          toUpperOrDash(d?.observacionCierre),
+          toUpperOrDash(d?.numeroCaso), // 0
+          toUpperOrDash(row.nombre), // 1
+          toUpperOrDash(row.cedula), // 2
+          toUpperOrDash(d?.telefono), // 3
+          toUpperOrDash(d?.direccion), // 4
+          toUpperOrDash(issue?.name), // 5
+          toUpperOrDash(row.referencia), // 6
+          "", // 7 — cédula foto
+          "", // 8 — reseña fotográfica
+          toUpperOrDash(row.responsable), // 9
+          toUpperOrDash(d?.observacionCierre), // 10
         ];
-        // Rastrear longitud máxima por columna (excluir columna foto, índice 7)
+        // Rastrear longitud máxima (excluir columnas de foto idx 7 y 8)
         cellValues.forEach((val, idx) => {
-          if (idx !== 7) colMaxLen[idx] = Math.max(colMaxLen[idx], val.length);
+          if (idx !== 7 && idx !== 8) colMaxLen[idx] = Math.max(colMaxLen[idx], val.length);
         });
         const dataRow = sheet.addRow(cellValues);
         if (includePhotos) dataRow.height = PHOTO_ROW_H_PT;
         dataRow.eachCell((cell, colNum) => {
-          if (colNum !== 8) {
+          if (colNum !== 8 && colNum !== 9) {
+            // 1-based: col 8=cédula foto, 9=reseña
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ROW_BG } };
           }
           cell.font = { size: 12, name: "Arial" };
           cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
           cell.border = { top: BORDER_DATA, bottom: BORDER_DATA, left: BORDER_DATA, right: BORDER_DATA };
         });
-        // N° centrado
         dataRow.getCell(1).alignment = { vertical: "middle", horizontal: "center" };
 
-        // Foto de cédula del beneficiado (adjunto [CI_BEN] o [CI_SOL])
+        // ── Fotos: cédula + reseña fotográfica ────────────────────────────
         if (includePhotos) {
           try {
             // oxlint-disable-next-line no-await-in-loop
             const attList = await attachmentService.getIssueAttachments(ws, pid, row.id);
-            // Buscar siempre [CI_BEN] primero, luego [CI_SOL] como fallback.
-            // Cuando mismoBeneficiario=true el botón [CI_SOL] se oculta y la cédula
-            // del solicitante se sube en [CI_BEN], así que no depender del toggle.
+            const rowZero = sheet.rowCount - 1; // índice 0-based de esta fila
+
+            // Cédula — [CI_BEN] primero, [CI_SOL] como fallback
             const cedulaAtt =
               attList?.find((a) => a.attributes?.name?.startsWith("[CI_BEN]")) ??
               attList?.find((a) => a.attributes?.name?.startsWith("[CI_SOL]"));
@@ -704,11 +718,55 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
               const mimeM = base64Full.match(/^data:image\/(\w+);base64,/);
               const ext = (mimeM?.[1] ?? "jpeg") as "png" | "jpeg" | "gif";
               const imgId = workbook.addImage({ base64: base64Full.split(",")[1], extension: ext });
-              const rowZero = sheet.rowCount - 1; // índice 0-based
-              sheet.addImage(imgId, { tl: { col: 7, row: rowZero }, ext: { width: PHOTO_W_PX, height: PHOTO_H_PX } });
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              sheet.addImage(imgId, {
+                tl: { col: 7, row: rowZero } as any,
+                ext: { width: PHOTO_W_PX, height: PHOTO_H_PX },
+              });
+            }
+
+            // Reseña fotográfica — adjuntos nativos (sin prefijo de slot)
+            const nativeImgs = (attList ?? []).filter((a) => {
+              const name = a.attributes?.name ?? "";
+              const noPrefix = !SLOT_PREFIXES_XLS.some((p) => name.startsWith(p));
+              const nameExt = name.split(".").pop()?.toLowerCase() ?? "";
+              const urlExt = (a.asset_url ?? "").split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+              return noPrefix && IMAGE_EXTS_XLS.has(nameExt || urlExt);
+            });
+            if (nativeImgs.length > 0) {
+              // Ajustar alto de fila si las imágenes en grilla necesitan más espacio
+              const gridRows = Math.ceil(nativeImgs.length / 2);
+              const reseñaHPx = gridRows * RESENA_IMG_H + (gridRows + 1) * RESENA_GAP;
+              const reseñaHPt = Math.ceil(reseñaHPx * 0.75);
+              dataRow.height = Math.max(dataRow.height ?? PHOTO_ROW_H_PT, reseñaHPt);
+              const rowHPx = (dataRow.height ?? PHOTO_ROW_H_PT) * (96 / 72);
+
+              for (let imgIdx = 0; imgIdx < nativeImgs.length; imgIdx++) {
+                const att = nativeImgs[imgIdx];
+                try {
+                  const rawUrl = getFileURL(att.asset_url) ?? att.asset_url;
+                  const fullUrl = rawUrl.startsWith("http") ? rawUrl : `${window.location.origin}${rawUrl}`;
+                  // oxlint-disable-next-line no-await-in-loop
+                  const b64 = await fetchBase64WithAuth(fullUrl);
+                  const mimeM = b64.match(/^data:image\/(\w+);base64,/);
+                  const ext = (mimeM?.[1] ?? "jpeg") as "png" | "jpeg" | "gif";
+                  const imgId = workbook.addImage({ base64: b64.split(",")[1], extension: ext });
+                  const gCol = imgIdx % 2;
+                  const gRow = Math.floor(imgIdx / 2);
+                  const xPx = RESENA_GAP + gCol * (RESENA_IMG_W + RESENA_GAP);
+                  const yPx = RESENA_GAP + gRow * (RESENA_IMG_H + RESENA_GAP);
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  sheet.addImage(imgId, {
+                    tl: { col: RESENA_COL_IDX + xPx / RESENA_COL_W_PX, row: rowZero + yPx / rowHPx } as any,
+                    ext: { width: RESENA_IMG_W, height: RESENA_IMG_H },
+                  });
+                } catch {
+                  /* imagen no disponible */
+                }
+              }
             }
           } catch {
-            /* cédula no disponible — celda vacía */
+            /* adjuntos no disponibles */
           }
         }
 
@@ -719,11 +777,11 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       // ── Auto-fit columnas por contenido (máx 36, mín 6) ──────────────────
       // Columna teléfono (idx 3): ancho fijo para números en una sola línea
       sheet.columns.forEach((col, idx) => {
-        if (idx === 7) return; // foto: ancho fijo ya asignado
+        if (idx === 7 || idx === 8) return; // fotos: ancho fijo ya asignado
         if (idx === 3) {
           col.width = 18;
           return;
-        } // teléfono: una sola línea con espacio
+        } // teléfono: una línea
         const len = colMaxLen[idx] ?? 10;
         col.width = Math.min(Math.max(Math.ceil(len * 0.85) + 1, 6), 36);
       });

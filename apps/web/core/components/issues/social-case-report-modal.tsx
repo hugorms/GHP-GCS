@@ -530,20 +530,26 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const ws = workspaceSlug?.toString() ?? "";
       const pid = projectId?.toString() ?? "";
 
-      // ── Anchos de columna (fijos, ajustados al ancho de pantalla) ──────────
-      const COL_WIDTHS = [6, 28, 14, 18, 28, 18, 32, 16, 22, 28];
+      // ── Anchos de columna — se calcularán por contenido al final ──────────
+      // Foto de cédula: 5 cm × 3 cm → 189 × 113 px a 96 DPI
+      const PHOTO_W_PX = 189;
+      const PHOTO_H_PX = 113;
+      // Columna foto (índice 7): ancho fijo para alojar la imagen (≈27 unidades Excel)
+      const PHOTO_COL_W = 27;
       sheet.columns = [
-        { key: "num", width: COL_WIDTHS[0] },
-        { key: "nombre", width: COL_WIDTHS[1] },
-        { key: "cedula", width: COL_WIDTHS[2] },
-        { key: "telefono", width: COL_WIDTHS[3] },
-        { key: "direccion", width: COL_WIDTHS[4] },
-        { key: "tipo", width: COL_WIDTHS[5] },
-        { key: "descripcion", width: COL_WIDTHS[6] },
-        { key: "foto", width: COL_WIDTHS[7] },
-        { key: "organismo", width: COL_WIDTHS[8] },
-        { key: "observacion", width: COL_WIDTHS[9] },
+        { key: "num" },
+        { key: "nombre" },
+        { key: "cedula" },
+        { key: "telefono" },
+        { key: "direccion" },
+        { key: "tipo" },
+        { key: "descripcion" },
+        { key: "foto", width: PHOTO_COL_W },
+        { key: "organismo" },
+        { key: "observacion" },
       ];
+      // Longitud máxima por columna — inicializada con los encabezados de tabla
+      const colMaxLen = [2, 38, 20, 14, 26, 14, 28, 0, 22, 24];
 
       // ── Logo ───────────────────────────────────────────────────────────────
       let logoId: number | null = null;
@@ -630,7 +636,9 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       });
 
       // Sin fotos: no forzar height → Excel auto-calcula al abrir (sin customHeight="1")
-      // Con fotos: forzar mínimo 85pt para que quepa la imagen de cédula
+      // Con fotos: forzar mínimo para que quepa la imagen (3 cm ≈ 85 pt)
+      // 1 cm = 28.35 pt → 3 cm ≈ 85 pt
+      const PHOTO_ROW_H_PT = Math.ceil((PHOTO_H_PX / 96) * 2.54 * 28.35); // px→cm→pt
 
       // ── Filas de datos ─────────────────────────────────────────────────────
       let done = 0;
@@ -654,8 +662,12 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           toUpperOrDash(row.responsable),
           toUpperOrDash(d?.observacionCierre),
         ];
+        // Rastrear longitud máxima por columna (excluir columna foto, índice 7)
+        cellValues.forEach((val, idx) => {
+          if (idx !== 7) colMaxLen[idx] = Math.max(colMaxLen[idx], val.length);
+        });
         const dataRow = sheet.addRow(cellValues);
-        if (includePhotos) dataRow.height = 85;
+        if (includePhotos) dataRow.height = PHOTO_ROW_H_PT;
         dataRow.eachCell((cell, colNum) => {
           if (colNum !== 8) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ROW_BG } };
@@ -687,7 +699,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
               const ext = (mimeM?.[1] ?? "jpeg") as "png" | "jpeg" | "gif";
               const imgId = workbook.addImage({ base64: base64Full.split(",")[1], extension: ext });
               const rowZero = sheet.rowCount - 1; // índice 0-based
-              sheet.addImage(imgId, { tl: { col: 7, row: rowZero }, ext: { width: 110, height: 68 } });
+              sheet.addImage(imgId, { tl: { col: 7, row: rowZero }, ext: { width: PHOTO_W_PX, height: PHOTO_H_PX } });
             }
           } catch {
             /* cédula no disponible — celda vacía */
@@ -697,6 +709,13 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         done++;
         setProgress({ current: done, total: rows.length });
       }
+
+      // ── Auto-fit columnas por contenido (máx 50, mín 6) ──────────────────
+      sheet.columns.forEach((col, idx) => {
+        if (idx === 7) return; // foto: ancho fijo ya asignado
+        const len = colMaxLen[idx] ?? 10;
+        col.width = Math.min(Math.max(Math.ceil(len * 1.1) + 2, 6), 50);
+      });
 
       // ── Descargar ──────────────────────────────────────────────────────────
       const buffer = await workbook.xlsx.writeBuffer();

@@ -623,7 +623,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         "DIRECCIÓN DE HABITACIÓN",
         "TIPO DE CASO",
         "DESCRIPCIÓN DE LA SOLICITUD",
-        "CÉDULA DEL BENEFICIADO",
+        "CÉDULA DE IDENTIDAD",
         "ORGANISMO COMPETENTE",
         "OBSERVACIÓN",
       ]);

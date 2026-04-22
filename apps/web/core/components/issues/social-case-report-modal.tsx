@@ -716,11 +716,16 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
         setProgress({ current: done, total: rows.length });
       }
 
-      // ── Auto-fit columnas por contenido (máx 50, mín 6) ──────────────────
+      // ── Auto-fit columnas por contenido (máx 36, mín 6) ──────────────────
+      // Columna teléfono (idx 3): ancho fijo para números en una sola línea
       sheet.columns.forEach((col, idx) => {
         if (idx === 7) return; // foto: ancho fijo ya asignado
+        if (idx === 3) {
+          col.width = 15;
+          return;
+        } // teléfono: justo para 0414-1234567
         const len = colMaxLen[idx] ?? 10;
-        col.width = Math.min(Math.max(Math.ceil(len * 0.95) + 1, 6), 42);
+        col.width = Math.min(Math.max(Math.ceil(len * 0.85) + 1, 6), 36);
       });
 
       // ── Descargar ──────────────────────────────────────────────────────────

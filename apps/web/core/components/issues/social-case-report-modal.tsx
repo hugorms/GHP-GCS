@@ -778,7 +778,13 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       // ── Auto-fit columnas por contenido (máx 36, mín 6) ──────────────────
       // Columna teléfono (idx 3): ancho fijo para números en una sola línea
       sheet.columns.forEach((col, idx) => {
-        if (idx === 7 || idx === 8) return; // fotos: ancho fijo ya asignado
+        if (idx === 7) return; // cédula foto: ancho fijo
+        if (idx === 8) {
+          // reseña: mínimo el ancho de las fotos (5 cm ≈ 28 u)
+          const len = colMaxLen[idx] ?? 0;
+          col.width = Math.max(Math.ceil(len * 0.85) + 1, RESENA_COL_W);
+          return;
+        }
         if (idx === 3) {
           col.width = 18;
           return;

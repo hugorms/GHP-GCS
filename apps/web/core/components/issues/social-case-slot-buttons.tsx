@@ -9,9 +9,10 @@ type Props = {
   workspaceSlug: string;
   projectId: string;
   issueId: string;
-  initialSlotFiles?: Record<string, string>;
   onSlotUpload: (slotPrefix: string, file: File) => Promise<void>;
 };
+
+const SLOT_PREFIXES_LIST = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
 
 function SlotButton({
   label,
@@ -43,7 +44,13 @@ function SlotButton({
           e.target.value = "";
         }}
       />
-      <Button variant="secondary" size="lg" disabled={uploading} onClick={() => inputRef.current?.click()}>
+      <Button
+        variant="secondary"
+        size="lg"
+        disabled={uploading}
+        onClick={() => inputRef.current?.click()}
+        className={isDone ? "border-green-500 text-green-600 dark:text-green-400" : ""}
+      >
         {uploading ? (
           <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" />
         ) : isDone ? (
@@ -57,24 +64,38 @@ function SlotButton({
   );
 }
 
-export function SocialCaseSlotButtons({
-  workspaceSlug: _workspaceSlug,
-  projectId,
-  issueId,
-  initialSlotFiles = {},
-  onSlotUpload,
-}: Props) {
+export function SocialCaseSlotButtons({ workspaceSlug: _workspaceSlug, projectId, issueId, onSlotUpload }: Props) {
   const {
     issue: { getIssueById },
+    attachment: { getAttachmentsByIssueId, getAttachmentById },
   } = useIssueDetail();
   const { getProjectStates, getStateById } = useProjectState();
 
-  const [slotFiles, setSlotFiles] = useState<Record<string, string>>(initialSlotFiles);
+  const [sessionUploads, setSessionUploads] = useState<Record<string, string>>({});
   const [slotUploading, setSlotUploading] = useState<Record<string, boolean>>({});
 
   const issue = getIssueById(issueId);
   const projectStates = getProjectStates(projectId);
   const currentState = issue?.state_id ? getStateById(issue.state_id) : undefined;
+
+  // Calcular qué slots ya tienen archivo subido leyendo directamente los adjuntos del store
+  const storeSlotFiles = (getAttachmentsByIssueId(issueId) ?? []).reduce<Record<string, string>>((acc, attId) => {
+    const att = getAttachmentById(attId);
+    if (!att) return acc;
+    const name = att.attributes?.name ?? "";
+    const prefix = SLOT_PREFIXES_LIST.find((p) => name.startsWith(p));
+    if (!prefix) return acc;
+    if (prefix === "[ENTREGA]") {
+      const count = Object.keys(acc).filter((k) => k.startsWith("[ENTREGA]")).length;
+      acc[`[ENTREGA]_${count + 1}`] = name;
+    } else {
+      acc[prefix] = name;
+    }
+    return acc;
+  }, {});
+
+  // Unir estado del store con uploads de la sesión actual
+  const slotFiles = { ...storeSlotFiles, ...sessionUploads };
 
   const hasSocialCaseWorkflow = Boolean(
     projectStates?.some((s) => s.name?.toLowerCase().includes("proceso")) &&
@@ -98,7 +119,7 @@ export function SocialCaseSlotButtons({
     setSlotUploading((prev) => ({ ...prev, [prefix]: true }));
     try {
       await onSlotUpload(prefix, file);
-      setSlotFiles((prev) => ({ ...prev, [prefix]: file.name }));
+      setSessionUploads((prev) => ({ ...prev, [prefix]: file.name }));
     } finally {
       setSlotUploading((prev) => ({ ...prev, [prefix]: false }));
     }

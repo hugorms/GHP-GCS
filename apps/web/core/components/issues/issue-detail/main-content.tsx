@@ -353,7 +353,6 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
             workspaceSlug={workspaceSlug}
             projectId={projectId}
             issueId={issueId}
-            initialSlotFiles={{}}
             onSlotUpload={async (slotPrefix, file) => {
               const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
               await attachmentService.uploadIssueAttachment(workspaceSlug, projectId, issueId, prefixedFile);

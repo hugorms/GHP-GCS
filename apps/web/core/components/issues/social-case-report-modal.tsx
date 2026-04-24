@@ -534,16 +534,16 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       // Cédula: 5 cm × 3 cm → 189 × 113 px a 96 DPI
       const PHOTO_W_PX = 189;
       const PHOTO_H_PX = 113;
-      // Excel col width units → px: width * 8 + 5 (Arial 12 aprox)
-      // Columna cédula: imagen 189px → ceil((189+5)/8) = 25 + margen = 32 u
-      const PHOTO_COL_W = 32; // idx 7 — suficiente para 189px con margen
-      // Reseña fotográfica: 2.5 cm ancho × 3 cm alto por imagen, grilla de 2 col
-      const RESENA_IMG_W = 94; // 2.5 cm → 94 px a 96 DPI
-      const RESENA_IMG_H = 113; // 3 cm → 113 px a 96 DPI
+      // ExcelJS usa mdw=7 internamente (Calibri 11): px = width * 7 + 5
+      // Cédula 189px → min units = ceil((189-5)/7) = 27, con margen generoso = 38
+      const PHOTO_COL_W = 38; // idx 7
+      // Reseña: 2 imgs×94px + gaps = 200px → min = ceil(195/7) = 28, con margen = 40
+      const RESENA_IMG_W = 94; // 2.5 cm → 94 px
+      const RESENA_IMG_H = 113; // 3 cm → 113 px
       const RESENA_COL_IDX = 8;
-      const RESENA_COL_W = 34; // 2×94 + gaps + margen → ceil((197+5)/8)+8 ≈ 34 u
-      const RESENA_COL_W_PX = RESENA_COL_W * 8 + 5; // px reales Arial 12
-      const RESENA_GAP = 4; // px de separación entre imágenes
+      const RESENA_COL_W = 40; // idx 8 — margen generoso para 2 imágenes
+      const RESENA_COL_W_PX = RESENA_COL_W * 7 + 5; // mdw=7, mismo que usa ExcelJS
+      const RESENA_GAP = 4; // px entre imágenes
       const IMAGE_EXTS_XLS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp"]);
       const SLOT_PREFIXES_XLS = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
 

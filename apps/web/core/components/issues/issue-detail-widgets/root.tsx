@@ -20,6 +20,7 @@ type Props = {
   renderWidgetModals?: boolean;
   issueServiceType: TIssueServiceType;
   hideWidgets?: TWorkItemWidgets[];
+  extraActionButtons?: React.ReactNode;
 };
 
 export function IssueDetailWidgets(props: Props) {
@@ -31,6 +32,7 @@ export function IssueDetailWidgets(props: Props) {
     renderWidgetModals = true,
     issueServiceType,
     hideWidgets,
+    extraActionButtons,
   } = props;
 
   return (
@@ -43,6 +45,7 @@ export function IssueDetailWidgets(props: Props) {
           disabled={disabled}
           issueServiceType={issueServiceType}
           hideWidgets={hideWidgets}
+          extraButtons={extraActionButtons}
         />
         <IssueDetailWidgetCollapsibles
           workspaceSlug={workspaceSlug}

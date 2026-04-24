@@ -57,10 +57,6 @@ type Props = {
   onSinResolucion?: () => Promise<void>;
   /** Reabre un caso cerrado (vuelve a proceso) */
   onReabrir?: () => Promise<void>;
-  /** Llamado al subir un archivo a un slot específico de evidencia */
-  onSlotUpload?: (slotPrefix: string, file: File) => Promise<void>;
-  /** Archivos ya subidos por slot al montar (prefix → nombre de archivo) */
-  initialSlotFiles?: Record<string, string>;
   /** Sube una nueva foto de perfil y devuelve la URL del asset */
   onPhotoUpload?: (file: File) => Promise<string>;
   /** Sincroniza el estado de guardado con el indicador global del issue ("submitting" | "submitted" | "saved") */
@@ -272,8 +268,6 @@ export const SocialCaseForm = ({
   onSinResolucion,
   onReabrir,
   onSavingChange,
-  onSlotUpload,
-  initialSlotFiles = {},
   onPhotoUpload,
   actividadesDisponibles = [],
 }: Props) => {
@@ -283,9 +277,6 @@ export const SocialCaseForm = ({
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
   const [jornadaNueva, setJornadaNueva] = useState(false);
-  const [slotUploading, setSlotUploading] = useState<Record<string, boolean>>({});
-  // prefix → nombre del archivo subido (persiste en sesión)
-  const [slotFiles, setSlotFiles] = useState<Record<string, string>>(initialSlotFiles);
   const [photoUploading, setPhotoUploading] = useState(false);
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
@@ -461,18 +452,6 @@ export const SocialCaseForm = ({
       await onSave(newHtml);
     } finally {
       setPhotoUploading(false);
-    }
-  };
-
-  const handleSlotUpload = async (prefix: string, file: File) => {
-    if (!onSlotUpload) return;
-    setSlotUploading((prev) => ({ ...prev, [prefix]: true }));
-    try {
-      await onSlotUpload(prefix, file);
-      // Guardar nombre permanentemente — sin timeout
-      setSlotFiles((prev) => ({ ...prev, [prefix]: file.name }));
-    } finally {
-      setSlotUploading((prev) => ({ ...prev, [prefix]: false }));
     }
   };
 
@@ -1005,76 +984,6 @@ export const SocialCaseForm = ({
           {/* BARRA DE NAVEGACIÓN — unificada al final del formulario */}
           {mode === "view" && (
             <div className="border-custom-border-100 space-y-3 border-t pt-3">
-              {/* Slots de evidencia — agrupados junto a los botones de acción */}
-              {onSlotUpload && !isClosed && (isEnProceso || isArticulacion) && (
-                <div className="flex flex-wrap gap-2">
-                  {EVIDENCE_SLOTS.filter((slot) => slot.prefix !== "[CI_SOL]" || data.mismoBeneficiario !== "true").map(
-                    (slot) => {
-                      const isRegistro = slot.prefix === "[ENTREGA]";
-                      const uploaded = slotFiles[slot.prefix];
-                      const uploading = slotUploading[slot.prefix];
-                      const registroCount = isRegistro
-                        ? Object.keys(slotFiles).filter((k) => k.startsWith("[ENTREGA]")).length
-                        : 0;
-                      const isDone = isRegistro ? registroCount > 0 : !!uploaded;
-                      const displayLabel = isRegistro
-                        ? registroCount > 0
-                          ? `${slot.label} (${registroCount})`
-                          : slot.label
-                        : uploaded
-                          ? slot.label
-                          : slot.label;
-                      return (
-                        <label
-                          key={slot.prefix}
-                          className={cn(
-                            "text-xs flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors",
-                            uploading
-                              ? "border-blue-300 bg-blue-50 text-blue-500 dark:bg-blue-900/20"
-                              : isDone
-                                ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-900/20"
-                                : "text-custom-text-200 hover:text-custom-text-100 border-subtle bg-surface-2 hover:border-strong"
-                          )}
-                        >
-                          <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            className="hidden"
-                            disabled={uploading}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              if (isRegistro) {
-                                const count = Object.keys(slotFiles).filter((k) => k.startsWith("[ENTREGA]")).length;
-                                handleSlotUpload(`[ENTREGA]_${count + 1}`, file);
-                              } else {
-                                handleSlotUpload(slot.prefix, file);
-                              }
-                              e.target.value = "";
-                            }}
-                          />
-                          {/* ícono clip */}
-                          <svg
-                            className="h-3 w-3 shrink-0"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                            />
-                          </svg>
-                          {uploading ? "Subiendo..." : isDone ? `✓ ${displayLabel}` : displayLabel}
-                        </label>
-                      );
-                    }
-                  )}
-                </div>
-              )}
-
               <div className="flex items-center justify-between gap-2">
                 {/* Izquierda: retroceder / reabrir */}
                 <div className="flex items-center gap-2">

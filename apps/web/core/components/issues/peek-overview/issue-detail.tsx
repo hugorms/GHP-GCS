@@ -44,10 +44,8 @@ import {
   injectProfilePhotoIntoHtml,
 } from "@/components/issues/social-case-form";
 import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
-import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
 import { FileService } from "@/services/file.service";
 
-const attachmentService = new IssueAttachmentService();
 const fileService = new FileService();
 // services init
 const workItemVersionService = new WorkItemVersionService();
@@ -71,7 +69,6 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
   const { data: currentUser } = useUser();
   const {
     issue: { getIssueById },
-    attachment: { getAttachmentsByIssueId, getAttachmentById },
   } = useIssueDetail();
   const { getProjectById } = useProject();
   const { getStateById, getProjectStates } = useProjectState();
@@ -130,20 +127,6 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
     issueOperations,
   });
   const actividadesDisponibles = useSocialCaseActividades(workspaceSlug, issue?.project_id ?? "");
-  const SLOT_PREFIXES = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
-  const initialSlotFiles = (getAttachmentsByIssueId(issueId) ?? []).reduce<Record<string, string>>((acc, id) => {
-    const att = getAttachmentById(id);
-    if (!att) return acc;
-    const prefix = SLOT_PREFIXES.find((p) => att.attributes.name.startsWith(p));
-    if (!prefix) return acc;
-    if (prefix === "[ENTREGA]") {
-      const count = Object.keys(acc).filter((k) => k.startsWith("[ENTREGA]")).length;
-      acc[`[ENTREGA]_${count + 1}`] = att.attributes.name;
-    } else {
-      acc[prefix] = att.attributes.name;
-    }
-    return acc;
-  }, {});
   // debounced duplicate issues swr
   const { duplicateIssues } = useDebouncedDuplicateIssues(
     workspaceSlug,
@@ -271,12 +254,6 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
               }
             : undefined
         }
-        initialSlotFiles={initialSlotFiles}
-        onSlotUpload={async (slotPrefix, file) => {
-          if (!issue.project_id) return;
-          const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
-          await attachmentService.uploadIssueAttachment(workspaceSlug, issue.project_id, issueId, prefixedFile);
-        }}
         onPhotoUpload={async (file) => {
           if (!issue.project_id) return "";
           const response = await fileService.uploadProjectAsset(

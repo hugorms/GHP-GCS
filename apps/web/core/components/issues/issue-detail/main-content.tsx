@@ -46,6 +46,7 @@ import {
 import { useSocialCaseStateChange } from "@/hooks/use-social-case-state-change";
 import { useSocialCaseFichaExport } from "@/hooks/use-social-case-ficha-export";
 import { useSocialCaseActividades, invalidateSocialCaseActividades } from "@/hooks/use-social-case-actividades";
+import { SocialCaseSlotButtons } from "@/components/issues/social-case-slot-buttons";
 import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
 import { FileService } from "@/services/file.service";
 
@@ -79,7 +80,6 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const { getUserDetails } = useMember();
   const {
     issue: { getIssueById },
-    attachment: { getAttachmentsByIssueId, getAttachmentById },
     peekIssue,
   } = useIssueDetail();
   const { getProjectById } = useProject();
@@ -126,21 +126,6 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const procesoStateId = projectStates?.find((s) => s.name?.toLowerCase().includes("proceso"))?.id;
   const articulacionStateId = projectStates?.find((s) => s.name?.toLowerCase().includes("articulaci"))?.id;
   const recibidoStateId = projectStates?.find((s) => s.name?.toLowerCase().includes("recib"))?.id;
-  const SLOT_PREFIXES = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
-  const initialSlotFiles = (getAttachmentsByIssueId(issueId) ?? []).reduce<Record<string, string>>((acc, id) => {
-    const att = getAttachmentById(id);
-    if (!att) return acc;
-    const prefix = SLOT_PREFIXES.find((p) => att.attributes.name.startsWith(p));
-    if (!prefix) return acc;
-    if (prefix === "[ENTREGA]") {
-      // Múltiples adjuntos de registro fotográfico — clave única por índice
-      const count = Object.keys(acc).filter((k) => k.startsWith("[ENTREGA]")).length;
-      acc[`[ENTREGA]_${count + 1}`] = att.attributes.name;
-    } else {
-      acc[prefix] = att.attributes.name;
-    }
-    return acc;
-  }, {});
   // debounced duplicate issues swr
   const { duplicateIssues } = useDebouncedDuplicateIssues(
     workspaceSlug,
@@ -265,11 +250,6 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
                 }
               : undefined
           }
-          initialSlotFiles={initialSlotFiles}
-          onSlotUpload={async (slotPrefix, file) => {
-            const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
-            await attachmentService.uploadIssueAttachment(workspaceSlug, projectId, issueId, prefixedFile);
-          }}
           onPhotoUpload={async (file) => {
             const response = await fileService.uploadProjectAsset(
               workspaceSlug,
@@ -368,6 +348,18 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
         disabled={!isEditable || isArchived}
         renderWidgetModals={!isPeekModeActive}
         issueServiceType={EIssueServiceType.ISSUES}
+        extraActionButtons={
+          <SocialCaseSlotButtons
+            workspaceSlug={workspaceSlug}
+            projectId={projectId}
+            issueId={issueId}
+            initialSlotFiles={{}}
+            onSlotUpload={async (slotPrefix, file) => {
+              const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
+              await attachmentService.uploadIssueAttachment(workspaceSlug, projectId, issueId, prefixedFile);
+            }}
+          />
+        }
       />
 
       {windowSize[0] < 768 && (

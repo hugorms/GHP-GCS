@@ -20,7 +20,11 @@ import usePeekOverviewOutsideClickDetector from "@/hooks/use-peek-overview-outsi
 import type { TIssueOperations } from "../issue-detail";
 import { IssueActivity } from "../issue-detail/issue-activity";
 import { IssueDetailWidgets } from "../issue-detail-widgets";
+import { SocialCaseSlotButtons } from "@/components/issues/social-case-slot-buttons";
+import { IssueAttachmentService } from "@/services/issue/issue_attachment.service";
 import { IssuePeekOverviewError } from "./error";
+
+const attachmentService = new IssueAttachmentService();
 import type { TPeekModes } from "./header";
 import { IssuePeekOverviewHeader } from "./header";
 import { PeekOverviewIssueDetails } from "./issue-detail";
@@ -194,6 +198,22 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                         issueId={issueId}
                         disabled={disabled || is_archived}
                         issueServiceType={EIssueServiceType.ISSUES}
+                        extraActionButtons={
+                          <SocialCaseSlotButtons
+                            workspaceSlug={workspaceSlug}
+                            projectId={projectId}
+                            issueId={issueId}
+                            onSlotUpload={async (slotPrefix, file) => {
+                              const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, { type: file.type });
+                              await attachmentService.uploadIssueAttachment(
+                                workspaceSlug,
+                                projectId,
+                                issueId,
+                                prefixedFile
+                              );
+                            }}
+                          />
+                        }
                       />
                     </div>
 
@@ -235,6 +255,24 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                             issueId={issueId}
                             disabled={disabled}
                             issueServiceType={EIssueServiceType.ISSUES}
+                            extraActionButtons={
+                              <SocialCaseSlotButtons
+                                workspaceSlug={workspaceSlug}
+                                projectId={projectId}
+                                issueId={issueId}
+                                onSlotUpload={async (slotPrefix, file) => {
+                                  const prefixedFile = new File([file], `${slotPrefix}_${file.name}`, {
+                                    type: file.type,
+                                  });
+                                  await attachmentService.uploadIssueAttachment(
+                                    workspaceSlug,
+                                    projectId,
+                                    issueId,
+                                    prefixedFile
+                                  );
+                                }}
+                              />
+                            }
                           />
                         </div>
 

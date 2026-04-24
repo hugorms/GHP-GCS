@@ -52,7 +52,6 @@ export const IssueAttachmentsDetail = observer(function IssueAttachmentsDetail(p
   const [isDeleteIssueAttachmentModalOpen, setIsDeleteIssueAttachmentModalOpen] = useState(false);
   // derived values
   const attachment = attachmentId ? getAttachmentById(attachmentId) : undefined;
-  const fileName = getFileName(attachment?.attributes.name ?? "");
   const fileExtension = getFileExtension(attachment?.asset_url ?? "");
   const fileIcon = getFileIcon(fileExtension, 28);
   const fileURL = getFileURL(attachment?.asset_url ?? "");
@@ -61,6 +60,31 @@ export const IssueAttachmentsDetail = observer(function IssueAttachmentsDetail(p
   const { isMobile } = usePlatformOS();
 
   if (!attachment) return <></>;
+
+  // Badge de origen — detecta y limpia todos los prefijos encadenados (ej. [CI_BEN]_[CI_SOL]_...)
+  const SLOT_BADGE_MAP: Record<string, string> = {
+    "[CI_SOL]": "C.I. Solicitante",
+    "[CI_BEN]": "C.I. Beneficiario",
+    "[ENTREGA]": "Registro Fotográfico",
+  };
+  const SLOT_PREFIXES = Object.keys(SLOT_BADGE_MAP);
+  const rawName = attachment.attributes.name ?? "";
+  let strippedName = rawName;
+  let firstSlotPrefix: string | undefined;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const p of SLOT_PREFIXES) {
+      if (strippedName.startsWith(`${p}_`)) {
+        if (!firstSlotPrefix) firstSlotPrefix = p;
+        strippedName = strippedName.slice(p.length + 1);
+        changed = true;
+        break;
+      }
+    }
+  }
+  const slotBadge = firstSlotPrefix ? SLOT_BADGE_MAP[firstSlotPrefix] : null;
+  const cleanFileName = getFileName(strippedName);
 
   return (
     <>
@@ -81,15 +105,15 @@ export const IssueAttachmentsDetail = observer(function IssueAttachmentsDetail(p
           <div className="flex items-center gap-3">
             <div className={`flex-shrink-0 overflow-hidden rounded ${isImage ? "h-[64px] w-[86px]" : "h-7 w-7"}`}>
               {isImage && fileURL ? (
-                <img src={fileURL} alt={fileName} className="h-full w-full object-cover rounded" />
+                <img src={fileURL} alt={cleanFileName} className="h-full w-full rounded object-cover" />
               ) : (
                 fileIcon
               )}
             </div>
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <Tooltip tooltipContent={fileName} isMobile={isMobile}>
-                  <span className="text-13">{truncateText(`${fileName}`, 10)}</span>
+                <Tooltip tooltipContent={cleanFileName} isMobile={isMobile}>
+                  <span className="text-13">{truncateText(cleanFileName, 10)}</span>
                 </Tooltip>
                 <Tooltip
                   isMobile={isMobile}
@@ -103,9 +127,14 @@ export const IssueAttachmentsDetail = observer(function IssueAttachmentsDetail(p
                 </Tooltip>
               </div>
 
-              <div className="flex items-center gap-3 text-11 text-secondary">
+              <div className="flex items-center gap-2 text-11 text-secondary">
                 <span>{fileExtension.toUpperCase()}</span>
                 <span>{convertBytesToSize(attachment.attributes.size)}</span>
+                {slotBadge && (
+                  <span className="bg-custom-background-80 text-custom-text-300 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] leading-none font-medium">
+                    {slotBadge}
+                  </span>
+                )}
               </div>
             </div>
           </div>

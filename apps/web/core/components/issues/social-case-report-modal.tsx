@@ -536,7 +536,7 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       const PHOTO_H_PX = 113;
       const PHOTO_COL_W = 27; // idx 7
       // Reseña fotográfica: 3 cm × 2 cm por imagen, grilla de 2 columnas
-      const RESENA_IMG_W = 113; // 3 cm
+      const _RESENA_IMG_W = 113; // 3 cm — referencia, el ancho real es dinámico
       const RESENA_IMG_H = 76; // 2 cm
       const RESENA_COL_IDX = 8; // índice 0-based de la columna reseña
       const RESENA_COL_W = 36; // ancho para 2 imágenes lado a lado
@@ -753,12 +753,17 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
                   const imgId = workbook.addImage({ base64: b64.split(",")[1], extension: ext });
                   const gCol = imgIdx % 2;
                   const gRow = Math.floor(imgIdx / 2);
-                  const xPx = RESENA_GAP + gCol * (RESENA_IMG_W + RESENA_GAP);
+                  // ¿Cuántas imágenes tiene esta fila de la grilla?
+                  const isLastGridRow = gRow === Math.floor((nativeImgs.length - 1) / 2);
+                  const imgsInRow = isLastGridRow && nativeImgs.length % 2 === 1 ? 1 : 2;
+                  // Ancho dinámico: llenar el ancho de la columna sin espacio vacío
+                  const imgW = Math.floor((RESENA_COL_W_PX - (imgsInRow + 1) * RESENA_GAP) / imgsInRow);
+                  const xPx = RESENA_GAP + gCol * (imgW + RESENA_GAP);
                   const yPx = RESENA_GAP + gRow * (RESENA_IMG_H + RESENA_GAP);
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   sheet.addImage(imgId, {
                     tl: { col: RESENA_COL_IDX + xPx / RESENA_COL_W_PX, row: rowZero + yPx / rowHPx } as any,
-                    ext: { width: RESENA_IMG_W, height: RESENA_IMG_H },
+                    ext: { width: imgW, height: RESENA_IMG_H },
                   });
                 } catch {
                   /* imagen no disponible */

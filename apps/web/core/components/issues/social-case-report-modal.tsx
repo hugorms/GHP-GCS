@@ -534,15 +534,16 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
       // Cédula: 5 cm × 3 cm → 189 × 113 px a 96 DPI
       const PHOTO_W_PX = 189;
       const PHOTO_H_PX = 113;
-      const PHOTO_COL_W = 27; // idx 7
+      // Excel col width units → px: width * 8 + 5 (Arial 12 aprox)
+      // Columna cédula: imagen 189px → ceil((189+5)/8) = 25 + margen = 32 u
+      const PHOTO_COL_W = 32; // idx 7 — suficiente para 189px con margen
       // Reseña fotográfica: 2.5 cm ancho × 3 cm alto por imagen, grilla de 2 col
-      // 2 imgs → 5 cm ancho 3 cm alto | 4 imgs → 5 cm ancho 6 cm alto
       const RESENA_IMG_W = 94; // 2.5 cm → 94 px a 96 DPI
       const RESENA_IMG_H = 113; // 3 cm → 113 px a 96 DPI
-      const RESENA_COL_IDX = 8; // índice 0-based
-      const RESENA_COL_W = 28; // ≈ 5 cm (2 imágenes de 2.5 cm lado a lado)
-      const RESENA_COL_W_PX = RESENA_COL_W * 7; // px estimados
-      const RESENA_GAP = 3; // px de separación entre imágenes
+      const RESENA_COL_IDX = 8;
+      const RESENA_COL_W = 34; // 2×94 + gaps + margen → ceil((197+5)/8)+8 ≈ 34 u
+      const RESENA_COL_W_PX = RESENA_COL_W * 8 + 5; // px reales Arial 12
+      const RESENA_GAP = 4; // px de separación entre imágenes
       const IMAGE_EXTS_XLS = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp"]);
       const SLOT_PREFIXES_XLS = ["[CI_SOL]", "[CI_BEN]", "[ENTREGA]"];
 
@@ -688,7 +689,17 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
           if (idx !== 7 && idx !== 8) colMaxLen[idx] = Math.max(colMaxLen[idx], val.length);
         });
         const dataRow = sheet.addRow(cellValues);
-        if (includePhotos) dataRow.height = PHOTO_ROW_H_PT;
+        if (includePhotos) {
+          // Altura = máximo entre mínimo de foto y texto más largo estimado
+          const PT_PER_LINE = 15;
+          const CHARS_EST = 18; // chars por línea con columnas auto-ajustadas
+          let maxLines = 1;
+          cellValues.forEach((val, idx) => {
+            if (idx === 7 || idx === 8) return;
+            maxLines = Math.max(maxLines, Math.ceil(val.length / CHARS_EST));
+          });
+          dataRow.height = Math.max(PHOTO_ROW_H_PT, maxLines * PT_PER_LINE);
+        }
         dataRow.eachCell((cell, colNum) => {
           if (colNum !== 8 && colNum !== 9) {
             // 1-based: col 8=cédula foto, 9=reseña

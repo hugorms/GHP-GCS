@@ -233,6 +233,7 @@ class CedulaLookupView(BaseAPIView):
                     "Content-Type": "application/json",
                 },
                 timeout=10,
+                verify=False,
             )
             return Response(resp.json(), status=resp.status_code)
         except Exception as e:

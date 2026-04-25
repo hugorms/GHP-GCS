@@ -185,6 +185,7 @@ from .external.base import (
     GPTIntegrationEndpoint,
     UnsplashEndpoint,
     WorkspaceGPTIntegrationEndpoint,
+    CedulaLookupView,
 )
 from .estimate.base import (
     ProjectEstimatePointEndpoint,

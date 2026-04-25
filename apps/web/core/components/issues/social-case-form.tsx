@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@plane/propel/button";
 import { cn, getFileURL } from "@plane/utils";
 import { VENEZUELA_ESTADOS } from "./social-case-estados";
+import { OnfaloService } from "@/services/onfalo.service";
+
+const onfaloService = new OnfaloService();
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -278,6 +281,8 @@ export const SocialCaseForm = ({
   const [editing, setEditing] = useState(false);
   const [jornadaNueva, setJornadaNueva] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [cedulaLooking, setCedulaLooking] = useState(false);
+  const lastCedulaQueried = useRef("");
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
   const latestDescHtml = useRef(descriptionHtml);
@@ -455,6 +460,29 @@ export const SocialCaseForm = ({
     }
   };
 
+  const handleCedulaBlur = async () => {
+    const num = data.cedula.replace(/\D/g, "");
+    if (!num || num.length < 6 || num === lastCedulaQueried.current) return;
+    lastCedulaQueried.current = num;
+    setCedulaLooking(true);
+    try {
+      const result = await onfaloService.lookupCedula(num);
+      if (!result) return;
+      setData((prev) => ({
+        ...prev,
+        ...(result.nombre && { nombre: result.nombre }),
+        ...(result.telefono && { telefono: result.telefono }),
+        ...(result.direccion && { direccion: result.direccion }),
+      }));
+      if (result.fotoUrl && onSave) {
+        const newHtml = injectProfilePhotoIntoHtml(latestDescHtml.current, result.fotoUrl);
+        await onSave(newHtml);
+      }
+    } finally {
+      setCedulaLooking(false);
+    }
+  };
+
   // En articulación, si es la misma persona se eximen los campos de beneficiario
   // (igual que hace el hook de cierre en el servidor)
   const effectiveArticulacionRequired =
@@ -619,14 +647,18 @@ export const SocialCaseForm = ({
               <div>
                 <label htmlFor="sc-cedula" className={labelClass}>
                   Cedula de identidad
+                  {cedulaLooking && (
+                    <span className="ml-2 animate-pulse text-[10px] text-placeholder">consultando...</span>
+                  )}
                 </label>
                 <input
                   id="sc-cedula"
-                  disabled={!isEditable}
+                  disabled={!isEditable || cedulaLooking}
                   className={fc(isEditable)}
                   placeholder="V-00.000.000"
                   value={data.cedula}
                   onChange={(e) => update("cedula", e.target.value)}
+                  onBlur={handleCedulaBlur}
                 />
               </div>
               <div>

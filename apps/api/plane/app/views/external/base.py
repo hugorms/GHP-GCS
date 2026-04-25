@@ -212,6 +212,34 @@ class WorkspaceGPTIntegrationEndpoint(BaseAPIView):
         )
 
 
+class CedulaLookupView(BaseAPIView):
+    """Proxy hacia Onfalo API para buscar datos personales por cédula venezolana."""
+
+    def get(self, request, cedula):
+        cedula_num = "".join(c for c in cedula if c.isdigit())
+        if not cedula_num:
+            return Response({"error": "Cédula inválida"}, status=status.HTTP_400_BAD_REQUEST)
+
+        onfalo_url = os.environ.get("ONFALO_API_URL", "https://onfalo.api.sp3.com.ve")
+        onfalo_key = os.environ.get("ONFALO_API_KEY", "")
+
+        try:
+            resp = requests.post(
+                f"{onfalo_url}/v1/person/search/external/full/V/{cedula_num}",
+                json={},
+                headers={
+                    "X-Api-Key": onfalo_key,
+                    "X-Tenant-Id": "sp3",
+                    "Content-Type": "application/json",
+                },
+                timeout=10,
+            )
+            return Response(resp.json(), status=resp.status_code)
+        except Exception as e:
+            log_exception(e)
+            return Response({"error": "Error al consultar Onfalo"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
 class UnsplashEndpoint(BaseAPIView):
     def get(self, request):
         (UNSPLASH_ACCESS_KEY,) = get_configuration_value(

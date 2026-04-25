@@ -12,7 +12,7 @@ from plane.app.views import CedulaLookupView
 
 urlpatterns = [
     path("unsplash/", UnsplashEndpoint.as_view(), name="unsplash"),
-    path("cedula-lookup/<str:cedula>/", CedulaLookupView.as_view(), name="cedula-lookup"),
+    path("cedula-lookup/<str:prefix>/<str:cedula>/", CedulaLookupView.as_view(), name="cedula-lookup"),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/ai-assistant/",
         GPTIntegrationEndpoint.as_view(),

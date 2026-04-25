@@ -282,6 +282,7 @@ export const SocialCaseForm = ({
   const [jornadaNueva, setJornadaNueva] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [cedulaLooking, setCedulaLooking] = useState(false);
+  const [cedulaNotFound, setCedulaNotFound] = useState(false);
   const lastCedulaQueried = useRef("");
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
@@ -465,9 +466,14 @@ export const SocialCaseForm = ({
     if (!num || num.length < 6 || num === lastCedulaQueried.current) return;
     lastCedulaQueried.current = num;
     setCedulaLooking(true);
+    setCedulaNotFound(false);
     try {
-      const result = await onfaloService.lookupCedula(num);
+      const result = await onfaloService.lookupCedula(data.cedula);
       if (!result) return;
+      if (result.notFound) {
+        setCedulaNotFound(true);
+        return;
+      }
       setData((prev) => ({
         ...prev,
         ...(result.nombre && { nombre: result.nombre }),
@@ -650,6 +656,9 @@ export const SocialCaseForm = ({
                   {cedulaLooking && (
                     <span className="ml-2 animate-pulse text-[10px] text-placeholder">consultando...</span>
                   )}
+                  {cedulaNotFound && !cedulaLooking && (
+                    <span className="text-red-500 ml-2 text-[10px]">No encontrado</span>
+                  )}
                 </label>
                 <input
                   id="sc-cedula"
@@ -657,7 +666,10 @@ export const SocialCaseForm = ({
                   className={fc(isEditable)}
                   placeholder="V-00.000.000"
                   value={data.cedula}
-                  onChange={(e) => update("cedula", e.target.value)}
+                  onChange={(e) => {
+                    update("cedula", e.target.value);
+                    if (cedulaNotFound) setCedulaNotFound(false);
+                  }}
                   onBlur={handleCedulaBlur}
                 />
               </div>

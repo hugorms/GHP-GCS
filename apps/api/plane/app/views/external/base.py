@@ -215,8 +215,9 @@ class WorkspaceGPTIntegrationEndpoint(BaseAPIView):
 class CedulaLookupView(BaseAPIView):
     """Proxy hacia Onfalo API para buscar datos personales por cédula venezolana."""
 
-    def get(self, request, cedula):
+    def get(self, request, prefix, cedula):
         cedula_num = "".join(c for c in cedula if c.isdigit())
+        nationality = prefix.upper() if prefix.upper() in ("V", "E", "J", "G", "P") else "V"
         if not cedula_num:
             return Response({"error": "Cédula inválida"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -225,7 +226,7 @@ class CedulaLookupView(BaseAPIView):
 
         try:
             resp = requests.post(
-                f"{onfalo_url}/v1/person/search/external/full/V/{cedula_num}",
+                f"{onfalo_url}/v1/person/search/external/full/{nationality}/{cedula_num}",
                 json={},
                 headers={
                     "X-Api-Key": onfalo_key,

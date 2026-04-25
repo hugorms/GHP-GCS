@@ -235,7 +235,11 @@ class CedulaLookupView(BaseAPIView):
                 timeout=10,
                 verify=False,
             )
-            return Response(resp.json(), status=resp.status_code)
+            try:
+                data = resp.json()
+            except Exception:
+                data = {"raw": resp.text}
+            return Response(data, status=resp.status_code)
         except Exception as e:
             log_exception(e)
             return Response({"error": "Error al consultar Onfalo"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

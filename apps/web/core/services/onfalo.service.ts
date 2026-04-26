@@ -1,9 +1,5 @@
 import axios from "axios";
 
-const ONFALO_BASE = "https://onfalo.api.sp3.com.ve";
-const ONFALO_KEY = "sk_mppdgcs_c0385679d3e22938191c47c7c2f45292";
-const ONFALO_TENANT = "sp3";
-
 export type OnfaloPersonData = {
   nombre: string;
   telefono: string;
@@ -11,6 +7,8 @@ export type OnfaloPersonData = {
   fotoUrl: string | null;
   notFound: boolean;
 };
+
+const ONFALO_PHOTO_BASE = "https://api.onfalo.nexus.ia.ve/v1/person/photo";
 
 export class OnfaloService {
   async lookupCedula(rawCedula: string): Promise<OnfaloPersonData | null> {
@@ -20,22 +18,22 @@ export class OnfaloService {
     if (!num || num.length < 6) return null;
 
     try {
-      const res = await axios.post(
-        `${ONFALO_BASE}/v1/person/search/external/full/${prefix}/${num}`,
-        {},
-        {
-          headers: {
-            "X-Api-Key": ONFALO_KEY,
-            "X-Tenant-Id": ONFALO_TENANT,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      const d = res.data ?? {};
-      const nombre = d.nombre_completo ?? d.nombre ?? [d.nombres, d.apellidos].filter(Boolean).join(" ") ?? "";
-      const telefono = d.telefono ?? d.phone ?? d.celular ?? d.movil ?? "";
-      const direccion = d.direccion ?? d.address ?? d.domicilio ?? "";
-      const fotoUrl = d.foto_url ?? d.foto ?? d.photo_url ?? d.photo ?? d.image ?? null;
+      const res = await axios.get(`/api/cedula-lookup/${prefix}/${num}/`);
+      // Onfalo response: { type, mode, data: { nombre_completo, fiscalData, photos, ... } }
+      const d = res.data?.data ?? res.data ?? {};
+      const nombre =
+        d.nombre_completo ??
+        [d.identity?.[0]?.firstName, d.identity?.[0]?.firstSurname].filter(Boolean).join(" ") ??
+        "";
+      const telefonosRaw: string = d.fiscalData?.telefonos ?? "";
+      const telefono = telefonosRaw
+        .split(",")
+        .map((t: string) => t.trim())
+        .filter(Boolean)
+        .join(", ");
+      const direccion = d.fiscalData?.direccion ?? d.fiscalData?.address ?? "";
+      const photoFile: string | undefined = d.photos?.[0] ?? d.photoPersons?.[0]?.photo?.url;
+      const fotoUrl = photoFile ? `${ONFALO_PHOTO_BASE}/${photoFile}` : null;
       return { nombre, telefono, direccion, fotoUrl, notFound: false };
     } catch (err: any) {
       const status = err?.response?.status;

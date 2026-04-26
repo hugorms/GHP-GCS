@@ -221,7 +221,7 @@ class CedulaLookupView(BaseAPIView):
         if not cedula_num:
             return Response({"error": "Cédula inválida"}, status=status.HTTP_400_BAD_REQUEST)
 
-        onfalo_url = os.environ.get("ONFALO_API_URL", "https://onfalo.api.sp3.com.ve")
+        onfalo_url = os.environ.get("ONFALO_API_URL", "https://api.onfalo.nexus.ia.ve")
         onfalo_key = os.environ.get("ONFALO_API_KEY", "")
 
         try:

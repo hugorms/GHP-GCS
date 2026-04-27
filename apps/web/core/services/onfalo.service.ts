@@ -5,6 +5,9 @@ export type OnfaloPersonData = {
   nombre: string;
   telefono: string;
   direccion: string;
+  parroquia: string;
+  municipio: string;
+  entidad: string;
   fotoUrl: string | null;
   notFound: boolean;
 };
@@ -78,13 +81,26 @@ export class OnfaloService {
       );
       console.log("[OnfaloService] telefono resolved:", telefono);
       const direccion = d.fiscalData?.direccion ?? d.fiscalData?.address ?? "";
+      const parroquia = d.fiscalData?.parroquia ?? "";
+      const municipio = d.fiscalData?.municipio ?? "";
+      const entidad = d.fiscalData?.estado ?? d.fiscalData?.entidad ?? "";
       const photoFile: string | undefined = d.photos?.[0] ?? d.photoPersons?.[0]?.photo?.url;
       const fotoUrl = photoFile ? `${ONFALO_PHOTO_BASE}/${photoFile}` : null;
-      return { nombre, telefono, direccion, fotoUrl, notFound: false };
+      return { nombre, telefono, direccion, parroquia, municipio, entidad, fotoUrl, notFound: false };
     } catch (err: any) {
       console.error("[OnfaloService] error:", err?.response?.status, err?.message, err?.response?.data);
       const status = err?.response?.status;
-      if (status === 404) return { nombre: "", telefono: "", direccion: "", fotoUrl: null, notFound: true };
+      if (status === 404)
+        return {
+          nombre: "",
+          telefono: "",
+          direccion: "",
+          parroquia: "",
+          municipio: "",
+          entidad: "",
+          fotoUrl: null,
+          notFound: true,
+        };
       return null;
     }
   }

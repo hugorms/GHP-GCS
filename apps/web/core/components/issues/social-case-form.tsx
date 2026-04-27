@@ -504,8 +504,18 @@ export const SocialCaseForm = ({
           ...(result.nombre && { nombre: result.nombre }),
           ...(result.telefono && { telefono: result.telefono }),
           ...(result.direccion && { direccion: result.direccion }),
+          ...(result.parroquia && { parroquia: result.parroquia }),
+          ...(result.municipio && { municipio: result.municipio }),
+          ...(result.entidad && { entidad: result.entidad }),
         };
-        console.log("[Onfalo] setData:", { nombre: next.nombre, telefono: next.telefono, direccion: next.direccion });
+        console.log("[Onfalo] setData:", {
+          nombre: next.nombre,
+          telefono: next.telefono,
+          direccion: next.direccion,
+          parroquia: next.parroquia,
+          municipio: next.municipio,
+          entidad: next.entidad,
+        });
         if (mode === "create-no-save") {
           try {
             localStorage.setItem(PENDING_KEY, JSON.stringify(next));

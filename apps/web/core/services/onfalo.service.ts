@@ -12,14 +12,14 @@ export type OnfaloPersonData = {
 // Proxy Django para fotos — el browser no puede enviar X-Api-Key directamente
 const ONFALO_PHOTO_BASE = `${API_BASE_URL}/api/cedula-photo`;
 
-const firstNonEmpty = (...vals: (string | null | undefined)[]): string => {
+const firstNonEmptyAll = (...vals: (string | null | undefined)[]): string => {
   for (const v of vals) {
     if (!v) continue;
     const parts = String(v)
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter(Boolean);
-    if (parts.length) return parts[0];
+    if (parts.length) return parts.join(", ");
   }
   return "";
 };
@@ -49,7 +49,7 @@ export class OnfaloService {
       console.log("[OnfaloService] dataTelecom JSON:", JSON.stringify(d.dataTelecom));
       console.log("[OnfaloService] identity[0] JSON:", JSON.stringify(d.identity?.[0]));
 
-      const telefono = firstNonEmpty(
+      const telefono = firstNonEmptyAll(
         d.dataTelecom?.suscriptorPhones?.[0]?.numero,
         d.dataTelecom?.suscriptorPhones?.[0]?.phone,
         d.dataTelecom?.suscriptorPhones?.[0]?.telefono,

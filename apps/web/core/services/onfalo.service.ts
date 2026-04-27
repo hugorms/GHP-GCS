@@ -12,6 +12,18 @@ export type OnfaloPersonData = {
 // Proxy Django para fotos — el browser no puede enviar X-Api-Key directamente
 const ONFALO_PHOTO_BASE = `${API_BASE_URL}/api/cedula-photo`;
 
+const firstNonEmpty = (...vals: (string | null | undefined)[]): string => {
+  for (const v of vals) {
+    if (!v) continue;
+    const parts = String(v)
+      .split(/[,;]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length) return parts[0];
+  }
+  return "";
+};
+
 export class OnfaloService {
   async lookupCedula(rawCedula: string): Promise<OnfaloPersonData | null> {
     const prefixMatch = rawCedula.toUpperCase().match(/^([VEJGP])/);
@@ -31,34 +43,42 @@ export class OnfaloService {
         d.nombre_completo ??
         [d.identity?.[0]?.firstName, d.identity?.[0]?.firstSurname].filter(Boolean).join(" ") ??
         "";
-      // Debug: mostrar todos los campos candidatos para teléfono
       console.log("[OnfaloService] phone candidates:", {
-        "fiscalData.telefonos": d.fiscalData?.telefonos,
-        "fiscalData.telefono": d.fiscalData?.telefono,
-        "fiscalData.celular": d.fiscalData?.celular,
-        "fiscalData.movil": d.fiscalData?.movil,
-        "fiscalData.phone": d.fiscalData?.phone,
-        telefonos: d.telefonos,
-        telefono: d.telefono,
-        phone: d.phone,
-        celular: d.celular,
-        movil: d.movil,
-        contacto: d.contacto,
-        contactInfo: d.contactInfo,
-        phones: d.phones,
-        "identity[0].phone": d.identity?.[0]?.phone,
-        "identity[0].celular": d.identity?.[0]?.celular,
-        "identity[0].movil": d.identity?.[0]?.movil,
-        "identity[0].telefonos": d.identity?.[0]?.telefonos,
-        fiscalData_full: d.fiscalData,
+        fiscalData: d.fiscalData,
+        dataTelecom: d.dataTelecom,
+        "ivssData[0]": d.ivssData?.[0],
+        "nominaRecords[0]": d.nominaRecords?.[0],
+        "identity[0]": d.identity?.[0],
       });
 
-      const telefonosRaw: string = d.fiscalData?.telefonos ?? "";
-      const telefono = telefonosRaw
-        .split(",")
-        .map((t: string) => t.trim())
-        .filter(Boolean)
-        .join(", ");
+      const telefono = firstNonEmpty(
+        d.dataTelecom?.suscriptorPhones?.[0]?.numero,
+        d.dataTelecom?.suscriptorPhones?.[0]?.phone,
+        d.dataTelecom?.suscriptorPhones?.[0]?.telefono,
+        d.dataTelecom?.relationPhones?.[0]?.numero,
+        d.dataTelecom?.relationPhones?.[0]?.phone,
+        d.dataTelecom?.relationPhones?.[0]?.telefono,
+        d.fiscalData?.telefonos,
+        d.fiscalData?.telefono,
+        d.fiscalData?.celular,
+        d.fiscalData?.movil,
+        d.fiscalData?.phone,
+        d.ivssData?.[0]?.telefono,
+        d.ivssData?.[0]?.celular,
+        d.ivssData?.[0]?.phone,
+        d.ivssData?.[0]?.movil,
+        d.nominaRecords?.[0]?.telefono,
+        d.nominaRecords?.[0]?.celular,
+        d.nominaRecords?.[0]?.phone,
+        d.identity?.[0]?.telefono,
+        d.identity?.[0]?.celular,
+        d.identity?.[0]?.phone,
+        d.telefono,
+        d.phone,
+        d.celular,
+        d.movil
+      );
+      console.log("[OnfaloService] telefono resolved:", telefono);
       const direccion = d.fiscalData?.direccion ?? d.fiscalData?.address ?? "";
       const photoFile: string | undefined = d.photos?.[0] ?? d.photoPersons?.[0]?.photo?.url;
       const fotoUrl = photoFile ? `${ONFALO_PHOTO_BASE}/${photoFile}` : null;

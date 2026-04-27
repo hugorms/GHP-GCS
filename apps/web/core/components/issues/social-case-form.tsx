@@ -349,7 +349,9 @@ export const SocialCaseForm = ({
           onSave(newHtml)
             .then(() => {
               localStorage.removeItem(PENDING_KEY);
-              if (photoUrl) localStorage.removeItem(PROFILE_PHOTO_KEY);
+              // PROFILE_PHOTO_KEY lo limpia el useEffect cuando descriptionHtml
+              // ya contiene la foto — no limpiar aquí para evitar que el componente
+              // quede sin fuente de foto durante el ciclo async de actualización del prop
               // Limpiar el guard de sesión una vez confirmado — ya está en DB
               if (migratedKey) sessionStorage.removeItem(migratedKey);
               return undefined;
@@ -501,6 +503,13 @@ export const SocialCaseForm = ({
           } catch (_) {}
         }
       } else if (onSave) {
+        // Guardar en localStorage para que la foto se muestre inmediatamente
+        // mientras el prop descriptionHtml se actualiza de forma asíncrona
+        if (result.fotoUrl) {
+          try {
+            localStorage.setItem(PROFILE_PHOTO_KEY, result.fotoUrl);
+          } catch (_) {}
+        }
         // Guardar datos + foto juntos para que el useEffect no sobreescriba con el HTML viejo
         let newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, next);
         if (result.fotoUrl) newHtml = injectProfilePhotoIntoHtml(newHtml, result.fotoUrl);

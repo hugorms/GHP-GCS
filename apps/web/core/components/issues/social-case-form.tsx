@@ -511,19 +511,20 @@ export const SocialCaseForm = ({
             localStorage.setItem(PENDING_KEY, JSON.stringify(next));
           } catch (_) {}
           onDataChange?.(next);
+        } else if (onSave) {
+          // En view: guardar datos + foto juntos para que el useEffect no los sobreescriba
+          const updatedNext = next;
+          let newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, updatedNext);
+          if (result.fotoUrl) newHtml = injectProfilePhotoIntoHtml(newHtml, result.fotoUrl);
+          onSave(newHtml);
         }
         return next;
       });
-      if (result.fotoUrl) {
-        console.log("[Onfalo] fotoUrl:", result.fotoUrl);
-        if (mode === "create-no-save") {
-          try {
-            localStorage.setItem(PROFILE_PHOTO_KEY, result.fotoUrl);
-          } catch (_) {}
-        } else if (onSave) {
-          const newHtml = injectProfilePhotoIntoHtml(latestDescHtml.current, result.fotoUrl);
-          await onSave(newHtml);
-        }
+      if (result.fotoUrl && mode === "create-no-save") {
+        console.log("[Onfalo] fotoUrl (create):", result.fotoUrl);
+        try {
+          localStorage.setItem(PROFILE_PHOTO_KEY, result.fotoUrl);
+        } catch (_) {}
       }
     } catch (e) {
       console.error("[Onfalo] unexpected error:", e);

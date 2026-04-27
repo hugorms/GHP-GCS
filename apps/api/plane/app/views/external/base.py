@@ -10,6 +10,7 @@ from typing import List, Dict, Tuple
 from openai import OpenAI
 import requests
 
+from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -212,6 +213,17 @@ class WorkspaceGPTIntegrationEndpoint(BaseAPIView):
         )
 
 
+def _onfalo_headers() -> dict:
+    return {
+        "X-Api-Key": os.environ.get("ONFALO_API_KEY", ""),
+        "X-Tenant-Id": os.environ.get("ONFALO_TENANT_ID", "sp3"),
+    }
+
+
+def _onfalo_url() -> str:
+    return os.environ.get("ONFALO_API_URL", "https://api.onfalo.nexus.ia.ve")
+
+
 class CedulaLookupView(BaseAPIView):
     """Proxy hacia Onfalo API para buscar datos personales por cédula venezolana."""
 
@@ -221,18 +233,11 @@ class CedulaLookupView(BaseAPIView):
         if not cedula_num:
             return Response({"error": "Cédula inválida"}, status=status.HTTP_400_BAD_REQUEST)
 
-        onfalo_url = os.environ.get("ONFALO_API_URL", "https://api.onfalo.nexus.ia.ve")
-        onfalo_key = os.environ.get("ONFALO_API_KEY", "")
-
         try:
             resp = requests.post(
-                f"{onfalo_url}/v1/person/search/external/full/{nationality}/{cedula_num}",
+                f"{_onfalo_url()}/v1/person/search/external/full/{nationality}/{cedula_num}",
                 json={},
-                headers={
-                    "X-Api-Key": onfalo_key,
-                    "X-Tenant-Id": "sp3",
-                    "Content-Type": "application/json",
-                },
+                headers={**_onfalo_headers(), "Content-Type": "application/json"},
                 timeout=10,
                 verify=False,
             )
@@ -247,19 +252,15 @@ class CedulaLookupView(BaseAPIView):
 
 
 class CedulaPhotoView(BaseAPIView):
-    """Proxy de fotos de cédula desde Onfalo — permite cargarlas desde el browser sin auth headers."""
+    """Proxy de fotos de cédula — el browser no puede enviar X-Api-Key en un img tag."""
 
     def get(self, request, filename):
-        onfalo_url = os.environ.get("ONFALO_API_URL", "https://api.onfalo.nexus.ia.ve")
-        onfalo_key = os.environ.get("ONFALO_API_KEY", "")
         try:
-            from django.http import HttpResponse
             resp = requests.get(
-                f"{onfalo_url}/v1/person/photo/{filename}",
-                headers={"X-Api-Key": onfalo_key, "X-Tenant-Id": "sp3"},
+                f"{_onfalo_url()}/v1/person/photo/{filename}",
+                headers=_onfalo_headers(),
                 timeout=10,
                 verify=False,
-                stream=True,
             )
             content_type = resp.headers.get("Content-Type", "image/jpeg")
             return HttpResponse(resp.content, content_type=content_type, status=resp.status_code)

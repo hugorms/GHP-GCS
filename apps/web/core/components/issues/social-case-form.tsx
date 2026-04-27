@@ -467,77 +467,46 @@ export const SocialCaseForm = ({
 
   const handleCedulaSearch = async (force = false) => {
     const num = data.cedula.replace(/\D/g, "");
-    console.log("[Onfalo] handleCedulaSearch", {
-      cedula: data.cedula,
-      num,
-      force,
-      lastQueried: lastCedulaQueried.current,
-      mode,
-    });
-    if (!num || num.length < 6) {
-      console.log("[Onfalo] abort: num too short");
-      return;
-    }
-    if (!force && num === lastCedulaQueried.current) {
-      console.log("[Onfalo] abort: already queried");
-      return;
-    }
+    if (!num || num.length < 6) return;
+    if (!force && num === lastCedulaQueried.current) return;
     lastCedulaQueried.current = num;
     setCedulaLooking(true);
     setCedulaNotFound(false);
     try {
-      console.log("[Onfalo] calling lookupCedula...");
       const result = await onfaloService.lookupCedula(data.cedula);
-      console.log("[Onfalo] result:", result);
-      if (!result) {
-        console.log("[Onfalo] result null (network error)");
-        return;
-      }
+      if (!result) return;
       if (result.notFound) {
-        console.log("[Onfalo] not found");
         setCedulaNotFound(true);
         return;
       }
-      setData((prev) => {
-        const next = {
-          ...prev,
-          ...(result.nombre && { nombre: result.nombre }),
-          ...(result.telefono && { telefono: result.telefono }),
-          ...(result.direccion && { direccion: result.direccion }),
-          ...(result.parroquia && { parroquia: result.parroquia }),
-          ...(result.municipio && { municipio: result.municipio }),
-          ...(result.entidad && { entidad: result.entidad }),
-        };
-        console.log("[Onfalo] setData:", {
-          nombre: next.nombre,
-          telefono: next.telefono,
-          direccion: next.direccion,
-          parroquia: next.parroquia,
-          municipio: next.municipio,
-          entidad: next.entidad,
-        });
-        if (mode === "create-no-save") {
-          try {
-            localStorage.setItem(PENDING_KEY, JSON.stringify(next));
-          } catch (_) {}
-          onDataChange?.(next);
-        } else if (onSave) {
-          // En view: guardar datos + foto juntos para que el useEffect no los sobreescriba
-          const updatedNext = next;
-          let newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, updatedNext);
-          if (result.fotoUrl) newHtml = injectProfilePhotoIntoHtml(newHtml, result.fotoUrl);
-          onSave(newHtml);
-        }
-        return next;
-      });
-      if (result.fotoUrl && mode === "create-no-save") {
-        console.log("[Onfalo] fotoUrl (create):", result.fotoUrl);
+      const onfaloFields = {
+        ...(result.nombre && { nombre: result.nombre }),
+        ...(result.telefono && { telefono: result.telefono }),
+        ...(result.direccion && { direccion: result.direccion }),
+        ...(result.parroquia && { parroquia: result.parroquia }),
+        ...(result.municipio && { municipio: result.municipio }),
+        ...(result.entidad && { entidad: result.entidad }),
+      };
+      setData((prev) => ({ ...prev, ...onfaloFields }));
+      const next = { ...data, ...onfaloFields };
+      if (mode === "create-no-save") {
         try {
-          localStorage.setItem(PROFILE_PHOTO_KEY, result.fotoUrl);
+          localStorage.setItem(PENDING_KEY, JSON.stringify(next));
         } catch (_) {}
+        onDataChange?.(next);
+        if (result.fotoUrl) {
+          try {
+            localStorage.setItem(PROFILE_PHOTO_KEY, result.fotoUrl);
+          } catch (_) {}
+        }
+      } else if (onSave) {
+        // Guardar datos + foto juntos para que el useEffect no sobreescriba con el HTML viejo
+        let newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, next);
+        if (result.fotoUrl) newHtml = injectProfilePhotoIntoHtml(newHtml, result.fotoUrl);
+        await onSave(newHtml);
       }
     } catch (e) {
-      console.error("[Onfalo] unexpected error:", e);
+      console.error("[Onfalo] error:", e);
     } finally {
       setCedulaLooking(false);
     }

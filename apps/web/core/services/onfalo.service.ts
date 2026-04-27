@@ -13,7 +13,6 @@ export type OnfaloPersonData = {
   notFound: boolean;
 };
 
-// Proxy Django para fotos — el browser no puede enviar X-Api-Key directamente
 const ONFALO_PHOTO_BASE = `${API_BASE_URL}/api/cedula-photo`;
 
 const firstNonEmptyAll = (...vals: (string | null | undefined)[]): string => {
@@ -36,23 +35,15 @@ export class OnfaloService {
     if (!num || num.length < 6) return null;
 
     try {
-      const url = `${API_BASE_URL}/api/cedula-lookup/${prefix}/${num}/`;
-      console.log("[OnfaloService] GET", url);
-      const res = await axios.get(url, { withCredentials: true });
-      console.log("[OnfaloService] raw response:", res.status, res.data);
-      // Onfalo response: { type, mode, data: { nombre_completo, fiscalData, photos, ... } }
+      const res = await axios.get(`${API_BASE_URL}/api/cedula-lookup/${prefix}/${num}/`, {
+        withCredentials: true,
+      });
+      // Onfalo wraps the person object under response.data.data
       const d = res.data?.data ?? res.data ?? {};
-      console.log("[OnfaloService] parsed d:", d);
       const nombre =
         d.nombre_completo ??
         [d.identity?.[0]?.firstName, d.identity?.[0]?.firstSurname].filter(Boolean).join(" ") ??
         "";
-      console.log("[OnfaloService] fiscalData JSON:", JSON.stringify(d.fiscalData));
-      console.log("[OnfaloService] ivssData[0] JSON:", JSON.stringify(d.ivssData?.[0]));
-      console.log("[OnfaloService] nominaRecords[0] JSON:", JSON.stringify(d.nominaRecords?.[0]));
-      console.log("[OnfaloService] dataTelecom JSON:", JSON.stringify(d.dataTelecom));
-      console.log("[OnfaloService] identity[0] JSON:", JSON.stringify(d.identity?.[0]));
-
       const telefono = firstNonEmptyAll(
         d.dataTelecom?.suscriptorPhones?.[0]?.numero,
         d.dataTelecom?.suscriptorPhones?.[0]?.phone,
@@ -80,7 +71,6 @@ export class OnfaloService {
         d.celular,
         d.movil
       );
-      console.log("[OnfaloService] telefono resolved:", telefono);
       const direccion = d.fiscalData?.direccion ?? d.fiscalData?.address ?? "";
       const parroquia = d.fiscalData?.parroquia ?? "";
       const municipio = d.fiscalData?.municipio ?? "";
@@ -90,9 +80,8 @@ export class OnfaloService {
       const fotoUrl = photoFile ? `${ONFALO_PHOTO_BASE}/${photoFile}` : null;
       return { nombre, telefono, direccion, parroquia, municipio, entidad, fotoUrl, notFound: false };
     } catch (err: any) {
-      console.error("[OnfaloService] error:", err?.response?.status, err?.message, err?.response?.data);
-      const status = err?.response?.status;
-      if (status === 404)
+      const httpStatus = err?.response?.status;
+      if (httpStatus === 404)
         return {
           nombre: "",
           telefono: "",

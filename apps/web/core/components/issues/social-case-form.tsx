@@ -467,15 +467,34 @@ export const SocialCaseForm = ({
 
   const handleCedulaSearch = async (force = false) => {
     const num = data.cedula.replace(/\D/g, "");
-    if (!num || num.length < 6) return;
-    if (!force && num === lastCedulaQueried.current) return;
+    console.log("[Onfalo] handleCedulaSearch", {
+      cedula: data.cedula,
+      num,
+      force,
+      lastQueried: lastCedulaQueried.current,
+      mode,
+    });
+    if (!num || num.length < 6) {
+      console.log("[Onfalo] abort: num too short");
+      return;
+    }
+    if (!force && num === lastCedulaQueried.current) {
+      console.log("[Onfalo] abort: already queried");
+      return;
+    }
     lastCedulaQueried.current = num;
     setCedulaLooking(true);
     setCedulaNotFound(false);
     try {
+      console.log("[Onfalo] calling lookupCedula...");
       const result = await onfaloService.lookupCedula(data.cedula);
-      if (!result) return;
+      console.log("[Onfalo] result:", result);
+      if (!result) {
+        console.log("[Onfalo] result null (network error)");
+        return;
+      }
       if (result.notFound) {
+        console.log("[Onfalo] not found");
         setCedulaNotFound(true);
         return;
       }
@@ -486,6 +505,7 @@ export const SocialCaseForm = ({
           ...(result.telefono && { telefono: result.telefono }),
           ...(result.direccion && { direccion: result.direccion }),
         };
+        console.log("[Onfalo] setData:", { nombre: next.nombre, telefono: next.telefono, direccion: next.direccion });
         if (mode === "create-no-save") {
           try {
             localStorage.setItem(PENDING_KEY, JSON.stringify(next));
@@ -495,6 +515,7 @@ export const SocialCaseForm = ({
         return next;
       });
       if (result.fotoUrl) {
+        console.log("[Onfalo] fotoUrl:", result.fotoUrl);
         if (mode === "create-no-save") {
           try {
             localStorage.setItem(PROFILE_PHOTO_KEY, result.fotoUrl);
@@ -504,6 +525,8 @@ export const SocialCaseForm = ({
           await onSave(newHtml);
         }
       }
+    } catch (e) {
+      console.error("[Onfalo] unexpected error:", e);
     } finally {
       setCedulaLooking(false);
     }

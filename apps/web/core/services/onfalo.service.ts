@@ -18,9 +18,13 @@ export class OnfaloService {
     if (!num || num.length < 6) return null;
 
     try {
-      const res = await axios.get(`/api/cedula-lookup/${prefix}/${num}/`);
+      const url = `/api/cedula-lookup/${prefix}/${num}/`;
+      console.log("[OnfaloService] GET", url);
+      const res = await axios.get(url);
+      console.log("[OnfaloService] raw response:", res.status, res.data);
       // Onfalo response: { type, mode, data: { nombre_completo, fiscalData, photos, ... } }
       const d = res.data?.data ?? res.data ?? {};
+      console.log("[OnfaloService] parsed d:", d);
       const nombre =
         d.nombre_completo ??
         [d.identity?.[0]?.firstName, d.identity?.[0]?.firstSurname].filter(Boolean).join(" ") ??
@@ -36,6 +40,7 @@ export class OnfaloService {
       const fotoUrl = photoFile ? `${ONFALO_PHOTO_BASE}/${photoFile}` : null;
       return { nombre, telefono, direccion, fotoUrl, notFound: false };
     } catch (err: any) {
+      console.error("[OnfaloService] error:", err?.response?.status, err?.message, err?.response?.data);
       const status = err?.response?.status;
       if (status === 404) return { nombre: "", telefono: "", direccion: "", fotoUrl: null, notFound: true };
       return null;

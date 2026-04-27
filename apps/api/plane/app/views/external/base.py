@@ -246,6 +246,28 @@ class CedulaLookupView(BaseAPIView):
             return Response({"error": "Error al consultar Onfalo"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
+class CedulaPhotoView(BaseAPIView):
+    """Proxy de fotos de cédula desde Onfalo — permite cargarlas desde el browser sin auth headers."""
+
+    def get(self, request, filename):
+        onfalo_url = os.environ.get("ONFALO_API_URL", "https://api.onfalo.nexus.ia.ve")
+        onfalo_key = os.environ.get("ONFALO_API_KEY", "")
+        try:
+            from django.http import HttpResponse
+            resp = requests.get(
+                f"{onfalo_url}/v1/person/photo/{filename}",
+                headers={"X-Api-Key": onfalo_key, "X-Tenant-Id": "sp3"},
+                timeout=10,
+                verify=False,
+                stream=True,
+            )
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+            return HttpResponse(resp.content, content_type=content_type, status=resp.status_code)
+        except Exception as e:
+            log_exception(e)
+            return Response({"error": "Error al obtener foto"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
 class UnsplashEndpoint(BaseAPIView):
     def get(self, request):
         (UNSPLASH_ACCESS_KEY,) = get_configuration_value(

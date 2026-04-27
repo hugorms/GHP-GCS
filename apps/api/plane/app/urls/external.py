@@ -7,12 +7,13 @@ from django.urls import path
 
 from plane.app.views import UnsplashEndpoint
 from plane.app.views import GPTIntegrationEndpoint, WorkspaceGPTIntegrationEndpoint
-from plane.app.views import CedulaLookupView
+from plane.app.views import CedulaLookupView, CedulaPhotoView
 
 
 urlpatterns = [
     path("unsplash/", UnsplashEndpoint.as_view(), name="unsplash"),
     path("cedula-lookup/<str:prefix>/<str:cedula>/", CedulaLookupView.as_view(), name="cedula-lookup"),
+    path("cedula-photo/<str:filename>", CedulaPhotoView.as_view(), name="cedula-photo"),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/ai-assistant/",
         GPTIntegrationEndpoint.as_view(),

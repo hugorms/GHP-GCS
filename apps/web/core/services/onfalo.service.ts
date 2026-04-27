@@ -9,7 +9,8 @@ export type OnfaloPersonData = {
   notFound: boolean;
 };
 
-const ONFALO_PHOTO_BASE = "https://api.onfalo.nexus.ia.ve/v1/person/photo";
+// Proxy Django para fotos — el browser no puede enviar X-Api-Key directamente
+const ONFALO_PHOTO_BASE = `${API_BASE_URL}/api/cedula-photo`;
 
 export class OnfaloService {
   async lookupCedula(rawCedula: string): Promise<OnfaloPersonData | null> {

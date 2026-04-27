@@ -1,4 +1,5 @@
 import axios from "axios";
+import { API_BASE_URL } from "@plane/constants";
 
 export type OnfaloPersonData = {
   nombre: string;
@@ -18,9 +19,9 @@ export class OnfaloService {
     if (!num || num.length < 6) return null;
 
     try {
-      const url = `/api/cedula-lookup/${prefix}/${num}/`;
+      const url = `${API_BASE_URL}/api/cedula-lookup/${prefix}/${num}/`;
       console.log("[OnfaloService] GET", url);
-      const res = await axios.get(url);
+      const res = await axios.get(url, { withCredentials: true });
       console.log("[OnfaloService] raw response:", res.status, res.data);
       // Onfalo response: { type, mode, data: { nombre_completo, fiscalData, photos, ... } }
       const d = res.data?.data ?? res.data ?? {};

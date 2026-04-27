@@ -63,6 +63,8 @@ type Props = {
   onReabrir?: () => Promise<void>;
   /** Sube una nueva foto de perfil y devuelve la URL del asset */
   onPhotoUpload?: (file: File) => Promise<string>;
+  /** Llamado cuando Onfalo devuelve una foto — para que el padre la muestre en su propio componente */
+  onPhotoFound?: (url: string) => void;
   /** Sincroniza el estado de guardado con el indicador global del issue ("submitting" | "submitted" | "saved") */
   onSavingChange?: (status: "submitting" | "submitted" | "saved") => void;
   /** Lista de actividades ya usadas en el proyecto para mostrar como sugerencias en el campo Actividad */
@@ -273,6 +275,7 @@ export const SocialCaseForm = ({
   onReabrir,
   onSavingChange,
   onPhotoUpload,
+  onPhotoFound,
   actividadesDisponibles = [],
 }: Props) => {
   const [data, setData] = useState<SocialCaseData>(EMPTY);
@@ -494,7 +497,10 @@ export const SocialCaseForm = ({
       };
       setData((prev) => ({ ...prev, ...onfaloFields }));
       const next = { ...latestData.current, ...onfaloFields };
-      if (result.fotoUrl) setLocalPhotoUrl(result.fotoUrl);
+      if (result.fotoUrl) {
+        setLocalPhotoUrl(result.fotoUrl);
+        onPhotoFound?.(result.fotoUrl);
+      }
       if (mode === "create-no-save") {
         try {
           localStorage.setItem(PENDING_KEY, JSON.stringify(next));
@@ -602,7 +608,7 @@ export const SocialCaseForm = ({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full font-body">
-      {/* Foto de perfil — solo en modo view */}
+      {/* Foto de perfil — solo en modo view (en create la muestra ProfilePhotoUpload del modal) */}
       {mode === "view" && (
         <div className="flex justify-center py-2">
           <div className="relative">

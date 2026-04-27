@@ -603,6 +603,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                     onDataChange={(d) => {
                       socialCaseDataRef.current = d;
                     }}
+                    onPhotoFound={(url) => setProfilePhotoUrl(url)}
                     actividadesDisponibles={actividadesDisponibles}
                   />
                 )}

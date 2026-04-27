@@ -469,12 +469,13 @@ export const SocialCaseForm = ({
     const num = data.cedula.replace(/\D/g, "");
     if (!num || num.length < 6) return;
     if (!force && num === lastCedulaQueried.current) return;
-    lastCedulaQueried.current = num;
     setCedulaLooking(true);
     setCedulaNotFound(false);
     try {
       const result = await onfaloService.lookupCedula(data.cedula);
+      // Solo bloqueamos el ref si obtuvimos respuesta válida — si falla la red, blur puede reintentar
       if (!result) return;
+      lastCedulaQueried.current = num;
       if (result.notFound) {
         setCedulaNotFound(true);
         return;
@@ -488,7 +489,7 @@ export const SocialCaseForm = ({
         ...(result.entidad && { entidad: result.entidad }),
       };
       setData((prev) => ({ ...prev, ...onfaloFields }));
-      const next = { ...data, ...onfaloFields };
+      const next = { ...latestData.current, ...onfaloFields };
       if (mode === "create-no-save") {
         try {
           localStorage.setItem(PENDING_KEY, JSON.stringify(next));

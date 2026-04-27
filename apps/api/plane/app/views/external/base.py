@@ -4,7 +4,10 @@
 
 # Python import
 import os
+import re
 from typing import List, Dict, Tuple
+
+_PHOTO_FILENAME_RE = re.compile(r"^[VEJGP]-\d{6,10}-[a-f0-9]+\.jpg$", re.IGNORECASE)
 
 # Third party import
 from openai import OpenAI
@@ -228,6 +231,8 @@ class CedulaLookupView(BaseAPIView):
     """Proxy hacia Onfalo API para buscar datos personales por cédula venezolana."""
 
     def get(self, request, prefix, cedula):
+        if not os.environ.get("ONFALO_API_KEY"):
+            return Response({"error": "ONFALO_API_KEY no configurado"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         cedula_num = "".join(c for c in cedula if c.isdigit())
         nationality = prefix.upper() if prefix.upper() in ("V", "E", "J", "G", "P") else "V"
         if not cedula_num:
@@ -255,6 +260,8 @@ class CedulaPhotoView(BaseAPIView):
     """Proxy de fotos de cédula — el browser no puede enviar X-Api-Key en un img tag."""
 
     def get(self, request, filename):
+        if not _PHOTO_FILENAME_RE.match(filename):
+            return Response({"error": "Nombre de archivo inválido"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             resp = requests.get(
                 f"{_onfalo_url()}/v1/person/photo/{filename}",

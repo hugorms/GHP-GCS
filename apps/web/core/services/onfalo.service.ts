@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "@plane/constants";
+import { VENEZUELA_ESTADOS } from "@/components/issues/social-case-estados";
 
 export type OnfaloPersonData = {
   nombre: string;
@@ -83,7 +84,8 @@ export class OnfaloService {
       const direccion = d.fiscalData?.direccion ?? d.fiscalData?.address ?? "";
       const parroquia = d.fiscalData?.parroquia ?? "";
       const municipio = d.fiscalData?.municipio ?? "";
-      const entidad = d.fiscalData?.estado ?? d.fiscalData?.entidad ?? "";
+      const rawEstado: string = d.fiscalData?.estado ?? d.fiscalData?.entidad ?? "";
+      const entidad = VENEZUELA_ESTADOS.find((e) => e.toLowerCase() === rawEstado.toLowerCase()) ?? "";
       const photoFile: string | undefined = d.photos?.[0] ?? d.photoPersons?.[0]?.photo?.url;
       const fotoUrl = photoFile ? `${ONFALO_PHOTO_BASE}/${photoFile}` : null;
       return { nombre, telefono, direccion, parroquia, municipio, entidad, fotoUrl, notFound: false };

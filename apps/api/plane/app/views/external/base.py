@@ -7,6 +7,9 @@ import os
 import re
 from typing import List, Dict, Tuple
 
+import boto3
+from botocore.config import Config as BotocoreConfig
+
 _PHOTO_FILENAME_RE = re.compile(r"^[VEJGP]-\d{6,10}-[a-f0-9]+\.jpg$", re.IGNORECASE)
 
 # Third party import
@@ -256,21 +259,33 @@ class CedulaLookupView(BaseAPIView):
             return Response({"error": "Error al consultar Onfalo"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
+def _minio_client():
+    """Retorna un cliente boto3 apuntando al MinIO de Onfalo."""
+    return boto3.client(
+        "s3",
+        endpoint_url=os.environ.get("ONFALO_MINIO_URL", "http://10.51.12.85:9000"),
+        aws_access_key_id=os.environ.get("ONFALO_MINIO_USER", "GHP_GCS"),
+        aws_secret_access_key=os.environ.get(
+            "ONFALO_MINIO_TOKEN",
+            "3aee7c976753c5050c7e1a120cf17177380a58a591aee40618f4d4c6de114e96",
+        ),
+        config=BotocoreConfig(signature_version="s3v4"),
+        region_name="us-east-1",
+    )
+
+
 class CedulaPhotoView(BaseAPIView):
-    """Proxy de fotos de cédula — el browser no puede enviar X-Api-Key en un img tag."""
+    """Proxy de fotos de cédula — descarga desde MinIO con credenciales internas."""
 
     def get(self, request, filename):
         if not _PHOTO_FILENAME_RE.match(filename):
             return Response({"error": "Nombre de archivo inválido"}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            resp = requests.get(
-                f"{_onfalo_url()}/v1/person/photo/{filename}",
-                headers=_onfalo_headers(),
-                timeout=10,
-                verify=False,
-            )
-            content_type = resp.headers.get("Content-Type", "image/jpeg")
-            return HttpResponse(resp.content, content_type=content_type, status=resp.status_code)
+            bucket = os.environ.get("ONFALO_MINIO_BUCKET", "alfa-images")
+            s3 = _minio_client()
+            obj = s3.get_object(Bucket=bucket, Key=filename)
+            content_type = obj.get("ContentType", "image/jpeg")
+            return HttpResponse(obj["Body"].read(), content_type=content_type, status=200)
         except Exception as e:
             log_exception(e)
             return Response({"error": "Error al obtener foto"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

@@ -43,13 +43,11 @@ export class OnfaloService {
         d.nombre_completo ??
         [d.identity?.[0]?.firstName, d.identity?.[0]?.firstSurname].filter(Boolean).join(" ") ??
         "";
-      console.log("[OnfaloService] phone candidates:", {
-        fiscalData: d.fiscalData,
-        dataTelecom: d.dataTelecom,
-        "ivssData[0]": d.ivssData?.[0],
-        "nominaRecords[0]": d.nominaRecords?.[0],
-        "identity[0]": d.identity?.[0],
-      });
+      console.log("[OnfaloService] fiscalData JSON:", JSON.stringify(d.fiscalData));
+      console.log("[OnfaloService] ivssData[0] JSON:", JSON.stringify(d.ivssData?.[0]));
+      console.log("[OnfaloService] nominaRecords[0] JSON:", JSON.stringify(d.nominaRecords?.[0]));
+      console.log("[OnfaloService] dataTelecom JSON:", JSON.stringify(d.dataTelecom));
+      console.log("[OnfaloService] identity[0] JSON:", JSON.stringify(d.identity?.[0]));
 
       const telefono = firstNonEmpty(
         d.dataTelecom?.suscriptorPhones?.[0]?.numero,

@@ -602,8 +602,8 @@ export const SocialCaseForm = ({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full font-body">
-      {/* Foto de perfil — en view siempre, en create-no-save solo cuando Onfalo devolvió una */}
-      {(mode === "view" || localPhotoUrl) && (
+      {/* Foto de perfil — solo en modo view */}
+      {mode === "view" && (
         <div className="flex justify-center py-2">
           <div className="relative">
             <div className="border-custom-border-200 shadow-sm h-32 w-24 overflow-hidden rounded-md border">

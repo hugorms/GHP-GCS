@@ -31,6 +31,28 @@ export class OnfaloService {
         d.nombre_completo ??
         [d.identity?.[0]?.firstName, d.identity?.[0]?.firstSurname].filter(Boolean).join(" ") ??
         "";
+      // Debug: mostrar todos los campos candidatos para teléfono
+      console.log("[OnfaloService] phone candidates:", {
+        "fiscalData.telefonos": d.fiscalData?.telefonos,
+        "fiscalData.telefono": d.fiscalData?.telefono,
+        "fiscalData.celular": d.fiscalData?.celular,
+        "fiscalData.movil": d.fiscalData?.movil,
+        "fiscalData.phone": d.fiscalData?.phone,
+        telefonos: d.telefonos,
+        telefono: d.telefono,
+        phone: d.phone,
+        celular: d.celular,
+        movil: d.movil,
+        contacto: d.contacto,
+        contactInfo: d.contactInfo,
+        phones: d.phones,
+        "identity[0].phone": d.identity?.[0]?.phone,
+        "identity[0].celular": d.identity?.[0]?.celular,
+        "identity[0].movil": d.identity?.[0]?.movil,
+        "identity[0].telefonos": d.identity?.[0]?.telefonos,
+        fiscalData_full: d.fiscalData,
+      });
+
       const telefonosRaw: string = d.fiscalData?.telefonos ?? "";
       const telefono = telefonosRaw
         .split(",")

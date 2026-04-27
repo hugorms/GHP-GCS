@@ -284,6 +284,8 @@ export const SocialCaseForm = ({
   const [photoUploading, setPhotoUploading] = useState(false);
   const [cedulaLooking, setCedulaLooking] = useState(false);
   const [cedulaNotFound, setCedulaNotFound] = useState(false);
+  // URL de foto obtenida de Onfalo en la sesión actual (válida en cualquier modo)
+  const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
   const lastCedulaQueried = useRef("");
   const savedData = useRef<SocialCaseData>(EMPTY);
   // Siempre apunta al descriptionHtml más reciente para evitar cierres obsoletos en save()
@@ -492,6 +494,7 @@ export const SocialCaseForm = ({
       };
       setData((prev) => ({ ...prev, ...onfaloFields }));
       const next = { ...latestData.current, ...onfaloFields };
+      if (result.fotoUrl) setLocalPhotoUrl(result.fotoUrl);
       if (mode === "create-no-save") {
         try {
           localStorage.setItem(PENDING_KEY, JSON.stringify(next));
@@ -574,6 +577,7 @@ export const SocialCaseForm = ({
   const currentPhotoUrl =
     mode === "view"
       ? (extractProfilePhotoFromHtml(descriptionHtml) ??
+        localPhotoUrl ??
         (() => {
           try {
             return localStorage.getItem(PROFILE_PHOTO_KEY) || null;
@@ -581,7 +585,7 @@ export const SocialCaseForm = ({
             return null;
           }
         })())
-      : null;
+      : localPhotoUrl;
   const photoSrc = currentPhotoUrl ? getFileURL(currentPhotoUrl) : null;
 
   useEffect(() => {
@@ -598,8 +602,8 @@ export const SocialCaseForm = ({
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="w-full font-body">
-      {/* Foto de perfil — solo en modo view */}
-      {mode === "view" && (
+      {/* Foto de perfil — en view siempre, en create-no-save solo cuando Onfalo devolvió una */}
+      {(mode === "view" || localPhotoUrl) && (
         <div className="flex justify-center py-2">
           <div className="relative">
             <div className="border-custom-border-200 shadow-sm h-32 w-24 overflow-hidden rounded-md border">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Search } from "lucide-react";
 import { Button } from "@plane/propel/button";
 import { cn, getFileURL } from "@plane/utils";
 import { VENEZUELA_ESTADOS } from "./social-case-estados";
@@ -464,9 +465,10 @@ export const SocialCaseForm = ({
     }
   };
 
-  const handleCedulaBlur = async () => {
+  const handleCedulaSearch = async (force = false) => {
     const num = data.cedula.replace(/\D/g, "");
-    if (!num || num.length < 6 || num === lastCedulaQueried.current) return;
+    if (!num || num.length < 6) return;
+    if (!force && num === lastCedulaQueried.current) return;
     lastCedulaQueried.current = num;
     setCedulaLooking(true);
     setCedulaNotFound(false);
@@ -678,18 +680,31 @@ export const SocialCaseForm = ({
                     <span className="text-red-500 ml-2 text-[10px]">No encontrado</span>
                   )}
                 </label>
-                <input
-                  id="sc-cedula"
-                  disabled={!isEditable || cedulaLooking}
-                  className={fc(isEditable)}
-                  placeholder="V-00.000.000"
-                  value={data.cedula}
-                  onChange={(e) => {
-                    update("cedula", e.target.value);
-                    if (cedulaNotFound) setCedulaNotFound(false);
-                  }}
-                  onBlur={handleCedulaBlur}
-                />
+                <div className="flex items-center gap-1">
+                  <input
+                    id="sc-cedula"
+                    disabled={!isEditable || cedulaLooking}
+                    className={cn(fc(isEditable), "min-w-0 flex-1")}
+                    placeholder="V-00.000.000"
+                    value={data.cedula}
+                    onChange={(e) => {
+                      update("cedula", e.target.value);
+                      if (cedulaNotFound) setCedulaNotFound(false);
+                    }}
+                    onBlur={() => handleCedulaSearch()}
+                  />
+                  {isEditable && (
+                    <button
+                      type="button"
+                      disabled={cedulaLooking}
+                      onClick={() => handleCedulaSearch(true)}
+                      title="Buscar en SENIAT"
+                      className="text-custom-text-300 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border-[0.5px] border-subtle bg-surface-2 transition-colors hover:border-strong hover:text-primary disabled:opacity-50"
+                    >
+                      <Search className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <label htmlFor="sc-nombre" className={labelClass}>

@@ -342,10 +342,13 @@ export const SocialCaseForm = ({
           if (migratedKey) sessionStorage.setItem(migratedKey, "1");
           const parsed: SocialCaseData = JSON.parse(pending);
           setData(parsed);
-          const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, parsed);
+          const baseHtml = injectSocialCaseIntoHtml(latestDescHtml.current, parsed);
+          const photoUrl = localStorage.getItem(PROFILE_PHOTO_KEY);
+          const newHtml = photoUrl ? injectProfilePhotoIntoHtml(baseHtml, photoUrl) : baseHtml;
           onSave(newHtml)
             .then(() => {
               localStorage.removeItem(PENDING_KEY);
+              if (photoUrl) localStorage.removeItem(PROFILE_PHOTO_KEY);
               // Limpiar el guard de sesión una vez confirmado — ya está en DB
               if (migratedKey) sessionStorage.removeItem(migratedKey);
               return undefined;
@@ -474,15 +477,30 @@ export const SocialCaseForm = ({
         setCedulaNotFound(true);
         return;
       }
-      setData((prev) => ({
-        ...prev,
-        ...(result.nombre && { nombre: result.nombre }),
-        ...(result.telefono && { telefono: result.telefono }),
-        ...(result.direccion && { direccion: result.direccion }),
-      }));
-      if (result.fotoUrl && onSave) {
-        const newHtml = injectProfilePhotoIntoHtml(latestDescHtml.current, result.fotoUrl);
-        await onSave(newHtml);
+      setData((prev) => {
+        const next = {
+          ...prev,
+          ...(result.nombre && { nombre: result.nombre }),
+          ...(result.telefono && { telefono: result.telefono }),
+          ...(result.direccion && { direccion: result.direccion }),
+        };
+        if (mode === "create-no-save") {
+          try {
+            localStorage.setItem(PENDING_KEY, JSON.stringify(next));
+          } catch (_) {}
+          onDataChange?.(next);
+        }
+        return next;
+      });
+      if (result.fotoUrl) {
+        if (mode === "create-no-save") {
+          try {
+            localStorage.setItem(PROFILE_PHOTO_KEY, result.fotoUrl);
+          } catch (_) {}
+        } else if (onSave) {
+          const newHtml = injectProfilePhotoIntoHtml(latestDescHtml.current, result.fotoUrl);
+          await onSave(newHtml);
+        }
       }
     } finally {
       setCedulaLooking(false);

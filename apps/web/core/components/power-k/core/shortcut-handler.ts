@@ -70,6 +70,7 @@ export class ShortcutHandler {
    */
   handleKeyDown = (e: KeyboardEvent): void => {
     if (!this.isEnabled) return;
+    if (!e.key) return;
 
     const key = e.key.toLowerCase();
     const hasModifier = e.metaKey || e.ctrlKey || e.altKey || e.shiftKey;

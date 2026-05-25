@@ -12,14 +12,16 @@ export const ProfilePhotoUpload = ({ photoUrl, previewUrl, uploading = false, on
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mountedRef = useRef(true);
   const [showCamera, setShowCamera] = useState(false);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
       stopStream();
-    },
-    []
-  );
+    };
+  }, []);
 
   useEffect(() => {
     if (showCamera && videoRef.current && streamRef.current) {
@@ -36,6 +38,10 @@ export const ProfilePhotoUpload = ({ photoUrl, previewUrl, uploading = false, on
     if (navigator.mediaDevices?.getUserMedia) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        if (!mountedRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         streamRef.current = stream;
         setShowCamera(true);
         return;

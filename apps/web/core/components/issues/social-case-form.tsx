@@ -181,7 +181,8 @@ export const stripSocialCaseFromHtml = (html: string): string =>
 
 /** Inyecta la foto de perfil como img oculta al inicio del description_html */
 export const injectProfilePhotoIntoHtml = (html: string, src: string): string => {
-  const tag = `<img data-profile-photo="1" src="${src}" style="display:none" alt="profile-photo" />`;
+  const safeSrc = src.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const tag = `<img data-profile-photo="1" src="${safeSrc}" style="display:none" alt="profile-photo" />`;
   return tag + (html ?? "").replace(PHOTO_RE, "");
 };
 
@@ -399,7 +400,7 @@ export const SocialCaseForm = ({
   };
 
   const scheduleAutoSave = () => {
-    if (mode !== "view" || !onSave || saving) return;
+    if (mode !== "view" || !onSave) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
       try {
@@ -513,6 +514,7 @@ export const SocialCaseForm = ({
           } catch (_) {}
         }
       } else if (onSave) {
+        if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
         // Guardar en localStorage para que la foto se muestre inmediatamente
         // mientras el prop descriptionHtml se actualiza de forma asíncrona
         if (result.fotoUrl) {

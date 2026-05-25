@@ -3,6 +3,7 @@
 # See the LICENSE file for details.
 
 # Python import
+import json
 import os
 import re
 from typing import List, Dict, Tuple
@@ -10,7 +11,7 @@ from typing import List, Dict, Tuple
 import boto3
 from botocore.config import Config as BotocoreConfig
 
-_PHOTO_FILENAME_RE = re.compile(r"^[VEJGP]-\d{6,10}-[a-f0-9]+\.jpg$", re.IGNORECASE)
+_PHOTO_FILENAME_RE = re.compile(r"^[VEJGP]-\d{6,10}-[a-f0-9]+\.jpg$")
 
 # Third party import
 from openai import OpenAI
@@ -304,10 +305,19 @@ class CedulaPhotoView(BaseAPIView):
             s3 = _minio_client()
             obj = s3.get_object(Bucket=bucket, Key=filename)
             content_type = obj.get("ContentType", "image/jpeg")
-            return HttpResponse(obj["Body"].read(), content_type=content_type, status=200)
+            body = obj["Body"]
+            try:
+                data = body.read()
+            finally:
+                body.close()
+            return HttpResponse(data, content_type=content_type, status=200)
         except Exception as e:
             log_exception(e)
-            return Response({"error": "Error al obtener foto"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            return HttpResponse(
+                json.dumps({"error": "Error al obtener foto"}),
+                content_type="application/json",
+                status=503,
+            )
 
 
 class UnsplashEndpoint(BaseAPIView):

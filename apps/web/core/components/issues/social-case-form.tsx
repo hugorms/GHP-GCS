@@ -324,6 +324,8 @@ export const SocialCaseForm = ({
 
     // modo view: no recargar si el usuario está editando activamente
     if (editing) return;
+    // no recargar mientras hay un guardado en vuelo — evita sobreescribir cambios del usuario
+    if (saving) return;
 
     // modo view: leer desde description_html
     const extracted = extractFromHtml(descriptionHtml);
@@ -428,7 +430,7 @@ export const SocialCaseForm = ({
     setSaving(true);
     onSavingChange?.("submitting");
     try {
-      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, data);
+      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, latestData.current);
       await onSave(newHtml);
       setSaved(true);
       setEditing(false);
@@ -446,10 +448,11 @@ export const SocialCaseForm = ({
 
   const saveAndComplete = async () => {
     if (!onSave || !onComplete) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setSaving(true);
     onSavingChange?.("submitting");
     try {
-      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, data);
+      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, latestData.current);
       await onSave(newHtml);
       await onComplete();
       setEditing(false);
@@ -464,10 +467,13 @@ export const SocialCaseForm = ({
 
   const handlePhotoUpload = async (file: File) => {
     if (!onPhotoUpload || !onSave) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setPhotoUploading(true);
     try {
       const assetUrl = await onPhotoUpload(file);
-      const newHtml = injectProfilePhotoIntoHtml(latestDescHtml.current, assetUrl);
+      // Reconstruir HTML con datos actuales para no sobreescribir cambios que auto-save haya aplicado
+      const base = injectSocialCaseIntoHtml(latestDescHtml.current, latestData.current);
+      const newHtml = injectProfilePhotoIntoHtml(base, assetUrl);
       await onSave(newHtml);
     } finally {
       setPhotoUploading(false);
@@ -562,10 +568,11 @@ export const SocialCaseForm = ({
   // Guarda la ficha y luego llama a la función de avance de estado
   const saveAndAdvance = async (advanceFn: () => Promise<void>) => {
     if (!onSave) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setSaving(true);
     onSavingChange?.("submitting");
     try {
-      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, data);
+      const newHtml = injectSocialCaseIntoHtml(latestDescHtml.current, latestData.current);
       await onSave(newHtml);
       await advanceFn();
       onSavingChange?.("submitted");

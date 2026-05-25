@@ -136,6 +136,13 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
   // ref para capturar datos del SocialCaseForm en tiempo real (evita depender de localStorage)
   const socialCaseDataRef = useRef<SocialCaseData | null>(null);
+  // ref que sigue profilePhotoUrl para evitar closures stale en uploadProfilePhoto
+  const profilePhotoUrlRef = useRef(profilePhotoUrl);
+  useEffect(() => {
+    profilePhotoUrlRef.current = profilePhotoUrl;
+  });
+  // flag: true cuando el issue fue creado exitosamente — evita limpiar PROFILE_PHOTO_KEY al desmontar
+  const issueCreatedRef = useRef(false);
 
   // refs
   const editorRef = useRef<EditorRefApi>(null);
@@ -251,12 +258,24 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workItemTemplateId]);
 
-  // Revocar el blob URL al desmontar el componente (cierre del modal sin guardar)
+  // Revocar el blob URL cuando cambia el preview
   useEffect(() => {
     return () => {
       if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview);
     };
   }, [profilePhotoPreview]);
+
+  // Limpiar PROFILE_PHOTO_KEY al desmontar si el issue NO fue creado (descarte por Escape/click-fuera/etc.)
+  useEffect(() => {
+    issueCreatedRef.current = false;
+    return () => {
+      if (!issueCreatedRef.current) {
+        try {
+          localStorage.removeItem(PROFILE_PHOTO_KEY);
+        } catch (_) {}
+      }
+    };
+  }, []);
 
   // Guarda el archivo y crea preview local inmediatamente. La subida real ocurre en handleFormSubmit.
   const handleProfilePhotoSelect = (file: File) => {
@@ -274,7 +293,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
   // Sube la foto al servidor. Se llama justo antes de guardar el formulario.
   const uploadProfilePhoto = async (): Promise<string | null> => {
     const file = profilePhotoFileRef.current;
-    if (!file || !workspaceSlug || !activeProjectId) return profilePhotoUrl;
+    if (!file || !workspaceSlug || !activeProjectId) return profilePhotoUrlRef.current;
     setProfilePhotoUploading(true);
     try {
       const response = await _fileService.uploadProjectAsset(
@@ -360,6 +379,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
     await onSubmit(submitData, is_draft_issue)
       .then(() => {
+        issueCreatedRef.current = true;
         // Borrar el pending SOLO después de confirmar que el issue se creó correctamente
         if (pendingKey) {
           try {
@@ -370,6 +390,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
         // Invalidar cache de actividades para que el próximo formulario muestre la nueva actividad
         invalidateSocialCaseActividades(workspaceSlug?.toString() ?? "", projectId ?? "");
         // Resetear el SocialCaseForm y foto de perfil para el próximo item
+        issueCreatedRef.current = false;
         setSocialFormKey((k) => k + 1);
         setProfilePhotoUrl(null);
         profilePhotoFileRef.current = null;
@@ -680,7 +701,6 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                         size="lg"
                         onClick={() => {
                           if (editorRef.current?.isEditorReadyToDiscard()) {
-                            try { localStorage.removeItem(PROFILE_PHOTO_KEY); } catch (_) {}
                             onClose();
                           } else {
                             setToast({

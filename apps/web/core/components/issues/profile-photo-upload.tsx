@@ -13,6 +13,7 @@ export const ProfilePhotoUpload = ({ photoUrl, previewUrl, uploading = false, on
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mountedRef = useRef(true);
+  const isRequestingCameraRef = useRef(false);
   const [showCamera, setShowCamera] = useState(false);
 
   useEffect(() => {
@@ -35,9 +36,12 @@ export const ProfilePhotoUpload = ({ photoUrl, previewUrl, uploading = false, on
   };
 
   const handleBoxClick = async () => {
+    if (isRequestingCameraRef.current || streamRef.current) return;
     if (navigator.mediaDevices?.getUserMedia) {
       try {
+        isRequestingCameraRef.current = true;
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        isRequestingCameraRef.current = false;
         if (!mountedRef.current) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -46,6 +50,7 @@ export const ProfilePhotoUpload = ({ photoUrl, previewUrl, uploading = false, on
         setShowCamera(true);
         return;
       } catch {
+        isRequestingCameraRef.current = false;
         /* sin permiso → galería */
       }
     }

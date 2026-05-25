@@ -230,6 +230,13 @@ def _onfalo_url() -> str:
     return os.environ.get("ONFALO_API_URL", "https://api.onfalo.nexus.ia.ve")
 
 
+def _onfalo_timeout() -> int:
+    try:
+        return int(os.environ.get("ONFALO_TIMEOUT", "25"))
+    except ValueError:
+        return 25
+
+
 class CedulaLookupView(BaseAPIView):
     """Proxy hacia Onfalo API para buscar datos personales por cédula venezolana."""
 
@@ -241,22 +248,34 @@ class CedulaLookupView(BaseAPIView):
         if not cedula_num:
             return Response({"error": "Cédula inválida"}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            resp = requests.post(
-                f"{_onfalo_url()}/v1/person/search/external/full/{nationality}/{cedula_num}",
-                json={},
-                headers={**_onfalo_headers(), "Content-Type": "application/json"},
-                timeout=10,
-                verify=False,
-            )
+        onfalo_endpoint = f"{_onfalo_url()}/v1/person/search/external/full/{nationality}/{cedula_num}"
+        retry_statuses = {502, 503, 504}
+        last_error = None
+
+        for attempt in range(2):
             try:
-                data = resp.json()
-            except Exception:
-                data = {"raw": resp.text}
-            return Response(data, status=resp.status_code)
-        except Exception as e:
-            log_exception(e)
-            return Response({"error": "Error al consultar Onfalo"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                resp = requests.post(
+                    onfalo_endpoint,
+                    json={},
+                    headers={**_onfalo_headers(), "Content-Type": "application/json"},
+                    timeout=_onfalo_timeout(),
+                    verify=False,
+                )
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {"raw": resp.text}
+                if resp.status_code in retry_statuses and attempt == 0:
+                    continue
+                return Response(data, status=resp.status_code)
+            except requests.RequestException as e:
+                last_error = e
+                if attempt == 0:
+                    continue
+
+        if last_error:
+            log_exception(last_error)
+        return Response({"error": "Error al consultar Onfalo"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 def _minio_client():

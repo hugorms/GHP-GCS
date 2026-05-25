@@ -15,9 +15,9 @@ export type OnfaloPersonData = {
 
 const ONFALO_PHOTO_BASE = `${API_BASE_URL}/api/cedula-photo`;
 
-const firstNonEmptyAll = (...vals: (string | null | undefined)[]): string => {
+const firstNonEmptyAll = (...vals: unknown[]): string => {
   for (const v of vals) {
-    if (!v) continue;
+    if (!v || (typeof v !== "string" && typeof v !== "number")) continue;
     const parts = String(v)
       .split(/[,;]/)
       .map((s) => s.trim())
@@ -81,7 +81,7 @@ export class OnfaloService {
       return { nombre, telefono, direccion, parroquia, municipio, entidad, fotoUrl, notFound: false };
     } catch (err: any) {
       const httpStatus = err?.response?.status;
-      if (httpStatus === 404)
+      if (httpStatus === 404 || httpStatus === 503 || httpStatus === 502 || httpStatus === 500)
         return {
           nombre: "",
           telefono: "",

@@ -256,8 +256,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     return () => {
       if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [profilePhotoPreview]);
 
   // Guarda el archivo y crea preview local inmediatamente. La subida real ocurre en handleFormSubmit.
   const handleProfilePhotoSelect = (file: File) => {
@@ -681,6 +680,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                         size="lg"
                         onClick={() => {
                           if (editorRef.current?.isEditorReadyToDiscard()) {
+                            try { localStorage.removeItem(PROFILE_PHOTO_KEY); } catch (_) {}
                             onClose();
                           } else {
                             setToast({

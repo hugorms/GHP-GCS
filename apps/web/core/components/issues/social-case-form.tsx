@@ -372,7 +372,7 @@ export const SocialCaseForm = ({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const NO_CAP = new Set<keyof SocialCaseData>(["numeroCaso", "cedula", "telefono", "mismoBeneficiario"]);
-  const TITLE_CAP = new Set<keyof SocialCaseData>(["nombre"]);
+  const TITLE_CAP = new Set<keyof SocialCaseData>(["nombre", "nombreBeneficiario", "solicitante"]);
 
   const capFirst = (f: keyof SocialCaseData, v: string) => {
     if (NO_CAP.has(f)) return v;
@@ -399,7 +399,7 @@ export const SocialCaseForm = ({
   };
 
   const scheduleAutoSave = () => {
-    if (mode !== "view" || !onSave) return;
+    if (mode !== "view" || !onSave || saving) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
       try {
@@ -423,6 +423,7 @@ export const SocialCaseForm = ({
 
   const save = async () => {
     if (!onSave) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setSaving(true);
     onSavingChange?.("submitting");
     try {
@@ -480,13 +481,13 @@ export const SocialCaseForm = ({
     setCedulaNotFound(false);
     try {
       const result = await onfaloService.lookupCedula(data.cedula);
-      // Solo bloqueamos el ref si obtuvimos respuesta válida — si falla la red, blur puede reintentar
+      // Solo bloqueamos el ref si obtuvimos respuesta válida — si falla la red o notFound, blur puede reintentar
       if (!result) return;
-      lastCedulaQueried.current = num;
       if (result.notFound) {
         setCedulaNotFound(true);
         return;
       }
+      lastCedulaQueried.current = num;
       const onfaloFields = {
         ...(result.nombre && { nombre: result.nombre }),
         ...(result.telefono && { telefono: result.telefono }),

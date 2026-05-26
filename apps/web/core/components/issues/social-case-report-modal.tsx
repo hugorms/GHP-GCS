@@ -82,17 +82,26 @@ async function urlToBase64(url: string): Promise<string> {
   });
 }
 
-// Obtiene la URL pre-firmada de MinIO a través del API de Django (que requiere auth)
-// y luego descarga el archivo SIN credenciales (evita CORS wildcard+credentials)
+// Para endpoints de Plane que devuelven URL pre-firmada con ?as_url=1 (adjuntos de assets)
 async function fetchBase64WithAuth(apiUrl: string): Promise<string> {
-  // Paso 1: pedir la URL pre-firmada como JSON (no redirect)
-  // Usar & si la URL ya tiene query params para no malformar la URL
   const sep = apiUrl.includes("?") ? "&" : "?";
   const jsonRes = await fetch(`${apiUrl}${sep}as_url=1`, { credentials: "include" });
   if (!jsonRes.ok) throw new Error(`HTTP ${jsonRes.status} al obtener URL`);
   const { url } = await jsonRes.json();
-  // Paso 2: descargar de MinIO sin credenciales (pre-signed URL es auto-autenticada)
   return urlToBase64(url);
+}
+
+// Para endpoints que sirven la imagen directamente con auth por cookie (ej. cedula-photo)
+async function fetchBase64Direct(apiUrl: string): Promise<string> {
+  const res = await fetch(apiUrl, { credentials: "include" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("loadend", () => resolve(reader.result as string));
+    reader.addEventListener("error", () => reject(new Error("FileReader error")));
+    reader.readAsDataURL(blob);
+  });
 }
 
 // ── FilterDropdown ────────────────────────────────────────────────────────────
@@ -434,7 +443,9 @@ export const SocialCaseReportModal = observer(function SocialCaseReportModal({ o
             try {
               const raw = getFileURL(row.photoUrl) ?? row.photoUrl;
               const apiUrl = raw.startsWith("http") ? raw : `${window.location.origin}${raw}`;
-              resolvedPhotoUrl = await fetchBase64WithAuth(apiUrl);
+              resolvedPhotoUrl = apiUrl.includes("/api/cedula-photo/")
+                ? await fetchBase64Direct(apiUrl)
+                : await fetchBase64WithAuth(apiUrl);
             } catch {
               resolvedPhotoUrl = null;
             }

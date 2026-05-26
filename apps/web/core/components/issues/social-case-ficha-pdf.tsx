@@ -300,7 +300,7 @@ export function SocialCaseFichaPDF({
           <Row label="Solicitante" value={data.solicitante || data.nombre} />
           <Row label="Beneficiario" value={data.nombreBeneficiario || data.nombre} />
           <Row label="C.I. Beneficiario" value={data.cedulaBeneficiario || data.cedula} />
-          <Row label="Solicitud / Beneficio" value={data.resultado} />
+          <Row label="Solicitud / Beneficio" value={data.referencia} />
           <Row label="Actividad" value={data.jornada} />
           <Row label="Fecha de actividad" value={formatDate(startDate ?? "")} />
           <Row label="Dirección de habitación" value={data.direccion} />
